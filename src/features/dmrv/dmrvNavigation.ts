@@ -47,6 +47,19 @@ export function dmrvProjectConfigPath(projectId: string): string {
   return `/dmrv/projects/${encodeURIComponent(projectId)}/config`;
 }
 
+export function dmrvReportPreviewPath(
+  projectId: string,
+  categorySlug: string,
+  typeId?: string,
+  opts?: { print?: boolean },
+): string {
+  const params = new URLSearchParams();
+  if (typeId) params.set('typeId', typeId);
+  if (opts?.print) params.set('print', 'true');
+  const q = params.toString();
+  return `/dmrv/projects/${encodeURIComponent(projectId)}/${encodeURIComponent(categorySlug)}/report${q ? `?${q}` : ''}`;
+}
+
 /** Project-scoped input configuration workspace. */
 export function dmrvInputConfigPath(
   projectId: string,

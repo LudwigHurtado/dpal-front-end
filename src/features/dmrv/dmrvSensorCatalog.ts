@@ -66,6 +66,7 @@ export const DMRV_SENSOR_IMAGE_URLS: Record<string, string> = {
   viirs: '/dmrv/satellites/viirs.png',
   'sentinel-3-olci': '/dmrv/satellites/sentinel-2.png',
   nisar: '/dmrv/satellites/sentinel-1.png',
+  'gedi-lidar': '/dmrv/lidar/gedi-iss-mount.png',
 };
 
 /** Resolved artwork for configurator cards (explicit entry or catalog map). */
@@ -143,6 +144,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     revisitLabel: 'ISS orbit',
     yearLabel: '2019–present',
     uiIcon: 'trees',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS['gedi-lidar'],
   },
   {
     id: 'esa-biomass',

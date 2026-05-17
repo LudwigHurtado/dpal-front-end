@@ -1,3 +1,4 @@
+import { emitDmrvReportDirty } from '../reporting/dmrvReportEvents';
 import type { DmrvSourceConfiguratorKind } from '../dmrvSensorCatalog';
 
 const STORAGE_KEY = 'dpal_dmrv_source_selections_v1';
@@ -45,6 +46,7 @@ export function saveSelectedSourceIds(
   const map = readAll();
   map[sourceSelectionKey(projectId, typeId, kind)] = [...new Set(ids)];
   writeAll(map);
+  emitDmrvReportDirty(projectId);
 }
 
 export function hasConfiguredSources(

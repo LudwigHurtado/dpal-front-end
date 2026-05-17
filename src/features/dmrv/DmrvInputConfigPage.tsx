@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Loader } from '../../../components/icons';
 import { DmrvAiConfigHelper, type DmrvAiHelperVariant } from './components/DmrvAiConfigHelper';
+import { DmrvFieldPlotAiAssistant } from './components/DmrvFieldPlotAiAssistant';
+import { DmrvFieldPlotGuidedPanel } from './components/DmrvFieldPlotGuidedPanel';
+import { DmrvFieldPlotIntegrityPanel } from './components/DmrvFieldPlotIntegrityPanel';
+import { DmrvFieldPlotSectionHelper } from './components/DmrvFieldPlotSectionHelper';
+import { DmrvFieldPlotValidationCards } from './components/DmrvFieldPlotValidationCards';
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvDataSourceFields } from './components/dmrvInputConfigFields';
 import { DmrvSatellitePicker } from './components/DmrvSatellitePicker';
@@ -10,6 +15,7 @@ import { DeepMethodologyCounsel } from './components/DeepMethodologyCounsel';
 import { DmrvMethodologyPresetPanel } from './components/DmrvMethodologyPresetPanel';
 import { DmrvSectionAiStrip } from './components/DmrvSectionAiStrip';
 import { Usgs3depLidarPanel } from '../environmentalIntelligence/components/Usgs3depLidarPanel';
+import { DmrvGediLidarGallery } from './components/DmrvGediLidarGallery';
 import { USGS_3DEP_TERRAIN_RELEVANCE_NOTE } from './dmrvRecommendedSources';
 import { runSceneSteppedAutofill } from './utils/sceneAutofillSteps';
 import { DMRV_SATELLITE_SETTINGS_KEY } from './dmrvSatelliteCatalog';
@@ -38,6 +44,24 @@ import {
 } from './dmrvMethodologyPresets';
 import type { DmrvConfigStatus, DmrvInputConfig } from './services/dmrvInputConfigTypes';
 import type { DmrvDataSourceSettings, DmrvValidationRules } from './services/dmrvInputConfigTypes';
+import type { FieldPlotDraft } from './services/dmrvFieldPlotConfigTypes';
+import { settingsToFieldPlot } from './services/dmrvFieldPlotConfigTypes';
+import {
+  applyFieldPlotDraft,
+  buildFieldPlotValidationRules,
+  buildSuggestedFieldPlotDraft,
+  computeFieldPlotIntegrity,
+  gatherEvidenceSourceLabels,
+  markFieldPlotDraftReviewed,
+} from './services/dmrvFieldPlotConfigService';
+import { DmrvWorkflowShell } from './reporting/DmrvWorkflowShell';
+import { DMRV_REPORT_MILESTONES } from './reporting/dmrvReportMilestones';
+import {
+  anchorReportVersion,
+  rebuildAndPersistDmrvReport,
+  saveReportSnapshot,
+} from './reporting/dmrvReportStore';
+import { useDmrvLiveReportSync } from './reporting/useDmrvLiveReportSync';
 
 export type DmrvInputConfigPageProps = {
   onReturn?: () => void;
@@ -96,6 +120,23 @@ export default function DmrvInputConfigPage({
   const [scenePreviewUpdating, setScenePreviewUpdating] = useState(false);
   const [sceneAutofillStatus, setSceneAutofillStatus] = useState<string | null>(null);
   const [methodologyTrace, setMethodologyTrace] = useState<MethodologyApplicationTrace | null>(null);
+  const [fieldPlotDraft, setFieldPlotDraft] = useState<FieldPlotDraft | null>(null);
+  const [showFieldPlotDraftReview, setShowFieldPlotDraftReview] = useState(false);
+  const [helperPrefill, setHelperPrefill] = useState<string | null>(null);
+
+  const liveWorkflowStep = useMemo(() => {
+    if (config?.configType === 'satellite') return 'satellite-config';
+    if (config?.configType === 'field-plots') return 'field-plots';
+    if (inputKey === 'validation-rules') return 'validation-rules';
+    if (config?.configType === 'blockchain') return 'blockchain-anchor';
+    return config?.configType ?? inputKey;
+  }, [config?.configType, inputKey]);
+
+  useDmrvLiveReportSync(projectId, liveWorkflowStep, {
+    activeInputConfig: config,
+    projectContext: storedProject,
+    enabled: Boolean(config && projectId),
+  });
 
   useEffect(() => {
     if (!categorySlug || !inputKey || !projectId) return;
@@ -113,7 +154,20 @@ export default function DmrvInputConfigPage({
     setConfig({ ...base, projectContext: snapshot });
   }, [categorySlug, inputKey, projectId, typeId, inputDef.label, storedProject]);
 
+  const isFieldPlots = config?.configType === 'field-plots';
   const integrityScore = config ? computeCompletenessScore(config) : 0;
+
+  const fieldPlotIntegrity = useMemo(() => {
+    if (!config || !isFieldPlots) return null;
+    const plot = settingsToFieldPlot(config.dataSourceSettings);
+    return computeFieldPlotIntegrity(plot, storedProject, config);
+  }, [config, isFieldPlots, storedProject]);
+
+  const fieldPlotValidationRules = useMemo(() => {
+    if (!config || !isFieldPlots) return [];
+    const plot = settingsToFieldPlot(config.dataSourceSettings);
+    return buildFieldPlotValidationRules(plot, storedProject, config);
+  }, [config, isFieldPlots, storedProject]);
 
   const aiHelperVariant: DmrvAiHelperVariant =
     inputKey === 'satellite-imagery'
@@ -381,6 +435,26 @@ export default function DmrvInputConfigPage({
     }
   }, [patchDataSource]);
 
+  const handleAiFillFieldPlots = useCallback(() => {
+    if (!config || !storedProject) return;
+    const evidenceLabels = gatherEvidenceSourceLabels(projectId, typeId);
+    const draft = buildSuggestedFieldPlotDraft({
+      project: storedProject,
+      typeId,
+      typeTitle,
+      evidenceSourceLabels: evidenceLabels,
+    });
+    setFieldPlotDraft(draft);
+    setShowFieldPlotDraftReview(true);
+    setConfig((prev) => (prev ? applyFieldPlotDraft(prev, draft) : prev));
+    setNotice('AI suggested draft applied — review every field before saving.');
+  }, [config, projectId, storedProject, typeId, typeTitle]);
+
+  const scrollToFieldPlotField = useCallback((fieldKey: string) => {
+    const el = document.getElementById(`field-plot-${fieldKey}`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
+
   const handleBulkAutofill = useCallback(
     (parsed: Record<string, unknown>) => {
       applySatellitePick(parsed);
@@ -439,6 +513,32 @@ export default function DmrvInputConfigPage({
 }
 Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5p.`;
     }
+    if (config.configType === 'field-plots') {
+      return `Suggest field plot dataSourceSettings for ${typeTitle}. Return JSON only:
+{
+  "dataSourceSettings": {
+    "plotId": "string",
+    "latitude": "string",
+    "longitude": "string",
+    "gpsAccuracySource": "string",
+    "speciesLandCover": "string",
+    "sampleDate": "YYYY-MM-DD",
+    "surveyor": "string",
+    "plotSizeRadius": "string",
+    "biomassEvidence": "string",
+    "photoAttachments": "string",
+    "provenanceNotes": "string",
+    "minimumPlotCount": "string",
+    "photosRequired": boolean
+  },
+  "validationRules": {
+    "requireCoordinates": true,
+    "requireTimestamp": true,
+    "requireFieldVerification": true,
+    "requireReviewerApproval": boolean
+  }
+}`;
+    }
     return `Suggest dataSourceSettings and validationRules for ${typeTitle} DMRV input "${inputDef.label}" (configType: ${config.configType}). Return JSON:
 {
   "dataSourceSettings": { },
@@ -450,7 +550,20 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
     if (!config) return;
     const saved = saveDmrvInputConfig(config);
     setConfig(saved);
-    setNotice('Configuration saved locally.');
+    rebuildAndPersistDmrvReport(saved.projectId, {
+      actor: 'user',
+      workflowStep: saved.configType,
+      changeSummary: `Saved ${saved.inputLabel} configuration`,
+      fieldChanged: saved.inputKey,
+    });
+    if (saved.configType === 'satellite') {
+      saveReportSnapshot(saved.projectId, DMRV_REPORT_MILESTONES.dataSources, 'satellite-config');
+    } else if (saved.configType === 'field-plots') {
+      saveReportSnapshot(saved.projectId, DMRV_REPORT_MILESTONES.fieldPlots, 'field-plots');
+    } else if (saved.inputKey === 'validation-rules') {
+      saveReportSnapshot(saved.projectId, DMRV_REPORT_MILESTONES.validation, 'validation-rules');
+    }
+    setNotice('Configuration saved locally — living report updated.');
   }, [config]);
 
   const handleTest = useCallback(async () => {
@@ -469,6 +582,13 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
     if (result.ok && result.packetId) {
       const next = saveDmrvInputConfig({ ...config, evidencePacketId: result.packetId });
       setConfig(next);
+      rebuildAndPersistDmrvReport(next.projectId, {
+        actor: 'user',
+        workflowStep: 'evidence-packet',
+        changeSummary: `Evidence packet ${result.packetId} generated`,
+        sourceEvidenceId: result.packetId,
+      });
+      saveReportSnapshot(next.projectId, DMRV_REPORT_MILESTONES.evidencePacket, 'evidence-packet');
     }
     setNotice(result.message);
   }, [config]);
@@ -496,7 +616,23 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
         },
       });
       setConfig(next);
-      setNotice(`Anchored via ${result.provider}.`);
+      rebuildAndPersistDmrvReport(next.projectId, {
+        actor: 'user',
+        workflowStep: 'blockchain-anchor',
+        changeSummary: `Blockchain anchor recorded (${result.ledgerRecordId ?? result.lastAnchoredHash ?? 'reference'})`,
+        hash: result.lastAnchoredHash,
+      });
+      const report = saveReportSnapshot(next.projectId, DMRV_REPORT_MILESTONES.verifier, 'blockchain-anchor');
+      const latest = report.versions[report.versions.length - 1];
+      if (latest) {
+        void anchorReportVersion(next.projectId, latest.versionId, {
+          evidencePacketId: next.evidencePacketId,
+          evidenceBundleHash: result.lastAnchoredHash,
+          actor: 'user',
+          transactionRef: result.ledgerRecordId,
+        });
+      }
+      setNotice(`Anchored via ${result.provider}. Living report hash recorded.`);
     } else if (!result.ok) {
       setConfig((prev) =>
         prev
@@ -574,10 +710,47 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
           </span>
         </header>
 
-        <DmrvWorkflowProgress activeStep={2} />
+        <DmrvWorkflowProgress activeStep={isFieldPlots ? 3 : 2} />
 
-        {storedProject ? <DmrvProjectContextBanner project={storedProject} /> : null}
+        {storedProject ? (
+          <>
+            <DmrvProjectContextBanner project={storedProject} />
+            {isFieldPlots ? (
+              <DmrvFieldPlotSectionHelper
+                title="Project Context"
+                intro="Project name, AOI, methodology, and reporting period flow into field plot suggestions and validation."
+                sectionId="project-context"
+                contextSummary={aiContextSummary}
+                disabled={!!busy}
+                onOpenFullHelper={setHelperPrefill}
+              />
+            ) : null}
+          </>
+        ) : null}
 
+        {isFieldPlots && fieldPlotIntegrity ? (
+          <>
+            <DmrvFieldPlotIntegrityPanel
+              breakdown={fieldPlotIntegrity}
+              disabled={!!busy}
+              onImproveScore={() => {
+                scrollToFieldPlotField('latitude');
+                handleAiFillFieldPlots();
+              }}
+              onAskAiFix={() =>
+                setHelperPrefill('How can I improve my field plot configuration integrity score?')
+              }
+            />
+            <DmrvFieldPlotSectionHelper
+              title="Configuration Integrity Score"
+              intro="The score tracks project context, coordinates, land cover, provenance, and evidence readiness."
+              sectionId="integrity"
+              contextSummary={JSON.stringify(fieldPlotIntegrity, null, 2)}
+              disabled={!!busy}
+              onOpenFullHelper={setHelperPrefill}
+            />
+          </>
+        ) : (
         <div className="mb-4 rounded-xl border border-[#1e3a5f]/20 bg-[#e8f0f7] px-4 py-3">
           <p className="text-sm font-semibold text-[#1e3a5f]">
             Configuration Integrity Score: {integrityScore}%
@@ -593,6 +766,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
             input — project identity is managed in project configuration.
           </p>
         </div>
+        )}
 
         {notice ? (
           <p className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700">
@@ -600,6 +774,12 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
           </p>
         ) : null}
 
+        <DmrvWorkflowShell
+          projectId={projectId}
+          categorySlug={categorySlug}
+          typeId={typeId}
+          workflowStep={inputDef.configType}
+        >
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]">
           <main className="space-y-4">
             {config.configType === 'satellite' ? (
@@ -708,6 +888,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
               ) : config.configType === 'lidar' ? (
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-start">
                   <div className="min-w-0 space-y-3">
+                    <DmrvGediLidarGallery compact className="rounded-xl border border-slate-200 bg-white p-3" />
                     <p className="text-xs text-slate-600">
                       Configure LiDAR provider and point-cloud settings. {USGS_3DEP_TERRAIN_RELEVANCE_NOTE}
                     </p>
@@ -735,6 +916,32 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
                     radiusKm={5}
                   />
                 </div>
+              ) : isFieldPlots ? (
+                <>
+                  <DmrvFieldPlotGuidedPanel
+                    settings={config.dataSourceSettings}
+                    draft={fieldPlotDraft}
+                    showDraftReview={showFieldPlotDraftReview}
+                    hasAoi={aoiExists}
+                    disabled={!!busy}
+                    onChange={patchDataSource}
+                    onAiFill={handleAiFillFieldPlots}
+                    onMarkReviewed={() => {
+                      setConfig((prev) => (prev ? markFieldPlotDraftReviewed(prev) : prev));
+                      setNotice('Marked AI draft as reviewed. Save when ready.');
+                    }}
+                    onDismissDraftReview={() => setShowFieldPlotDraftReview(false)}
+                  />
+                  <DmrvFieldPlotSectionHelper
+                    title="Field Plot AI Guide"
+                    intro="Field plots are ground-truth evidence that helps verify what the satellite sees. GPS, land-cover, survey date, plot size, photos, and provenance notes are typical requirements."
+                    sectionId="data-source"
+                    contextSummary={aiContextSummary}
+                    disabled={!!busy}
+                    onFillDraft={handleAiFillFieldPlots}
+                    onOpenFullHelper={setHelperPrefill}
+                  />
+                </>
               ) : (
                 <>
                   <DmrvDataSourceFields
@@ -758,8 +965,26 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
               )}
             </Panel>
 
-            <Panel title="Evidence Rules">
-              <ValidationRules config={config} onPatch={patchValidation} />
+            <Panel title={isFieldPlots ? 'Validation Rules' : 'Evidence Rules'}>
+              {isFieldPlots ? (
+                <>
+                  <DmrvFieldPlotValidationCards
+                    rules={fieldPlotValidationRules}
+                    disabled={!!busy}
+                    onScrollToField={scrollToFieldPlotField}
+                  />
+                  <DmrvFieldPlotSectionHelper
+                    title="Validation Rules"
+                    intro="These rules show what reviewers expect before field evidence supports satellite MRV and blockchain anchoring."
+                    sectionId="validation"
+                    contextSummary={evidenceRulesContext}
+                    disabled={!!busy}
+                    onOpenFullHelper={setHelperPrefill}
+                  />
+                </>
+              ) : (
+                <ValidationRules config={config} onPatch={patchValidation} />
+              )}
               {config.configType === 'satellite' ? (
                 <DmrvSectionAiStrip
                   sectionLabel="Evidence rules"
@@ -778,6 +1003,16 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
 
             <Panel title="Evidence Packet Settings">
               <EvidenceFields config={config} onPatch={patchEvidence} />
+              {isFieldPlots ? (
+                <DmrvFieldPlotSectionHelper
+                  title="Evidence Packet Readiness"
+                  intro="Configure what goes into the reviewer packet — map snapshots, attachments, and visibility."
+                  sectionId="evidence-packet"
+                  contextSummary={evidencePacketContext}
+                  disabled={!!busy}
+                  onOpenFullHelper={setHelperPrefill}
+                />
+              ) : null}
               {config.configType === 'satellite' ? (
                 <DmrvSectionAiStrip
                   sectionLabel="Package settings"
@@ -811,15 +1046,37 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
           </main>
 
           <aside className="space-y-4">
-            <DmrvAiConfigHelper
-              variant={aiHelperVariant}
-              contextSummary={aiContextSummary}
-              disabled={!!busy}
-              autofillPrompt={bulkAutofillPrompt}
-              onApplyAutofill={handleBulkAutofill}
-            />
+            {isFieldPlots ? (
+              <DmrvFieldPlotAiAssistant
+                contextSummary={aiContextSummary}
+                disabled={!!busy}
+                prefillQuestion={helperPrefill}
+                onClearPrefill={() => setHelperPrefill(null)}
+                onFillConfiguration={handleAiFillFieldPlots}
+                autofillPrompt={bulkAutofillPrompt}
+                onApplyAutofill={handleBulkAutofill}
+              />
+            ) : (
+              <DmrvAiConfigHelper
+                variant={aiHelperVariant}
+                contextSummary={aiContextSummary}
+                disabled={!!busy}
+                autofillPrompt={bulkAutofillPrompt}
+                onApplyAutofill={handleBulkAutofill}
+              />
+            )}
             <Panel title="Evidence + Blockchain Status">
               <BlockchainPanel config={config} />
+              {isFieldPlots ? (
+                <DmrvFieldPlotSectionHelper
+                  title="Blockchain Anchor"
+                  intro="Anchoring stores a tamper-evident reference after field evidence and validation are complete."
+                  sectionId="blockchain"
+                  contextSummary={JSON.stringify(config.blockchain, null, 2)}
+                  disabled={!!busy}
+                  onOpenFullHelper={setHelperPrefill}
+                />
+              ) : null}
             </Panel>
             <Panel title="Blockchain Link">
               <div className="space-y-3 text-sm">
@@ -847,6 +1104,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
             </Panel>
           </aside>
         </div>
+        </DmrvWorkflowShell>
 
         {onReturn ? (
           <button

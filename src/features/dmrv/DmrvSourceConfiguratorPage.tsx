@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from '../../../components/icons';
 import { DmrvAiConfigHelper } from './components/DmrvAiConfigHelper';
@@ -20,6 +20,10 @@ import {
   getSelectedSourceIds,
   saveSelectedSourceIds,
 } from './services/dmrvSourceSelectionService';
+import { DmrvWorkflowShell } from './reporting/DmrvWorkflowShell';
+import { DMRV_REPORT_MILESTONES } from './reporting/dmrvReportMilestones';
+import { rebuildAndPersistDmrvReport, saveReportSnapshot } from './reporting/dmrvReportStore';
+import { useDmrvLiveReportSync } from './reporting/useDmrvLiveReportSync';
 
 const VALID_KINDS = new Set<DmrvSourceStackKind>(['satellite', 'lidar']);
 
@@ -61,6 +65,12 @@ export default function DmrvSourceConfiguratorPage({
     (ids: string[]) => {
       if (!sourceKind) return;
       saveSelectedSourceIds(projectId, typeId, sourceKind, ids);
+      rebuildAndPersistDmrvReport(projectId, {
+        actor: 'user',
+        workflowStep: 'satellite-config',
+        changeSummary: `Saved ${sourceKind} source stack (${ids.length} sources)`,
+      });
+      saveReportSnapshot(projectId, DMRV_REPORT_MILESTONES.dataSources, 'satellite-config');
       navigate(backPath);
     },
     [backPath, navigate, projectId, sourceKind, typeId],
@@ -91,6 +101,16 @@ export default function DmrvSourceConfiguratorPage({
   const inputKey = sourceStackKindToInputKey(sourceKind);
   const sceneConfigPath = dmrvInputConfigPath(projectId, categorySlug, inputKey, typeId);
   const initialSelectedIds = getSelectedSourceIds(projectId, typeId, sourceKind);
+  const [draftSourceIds, setDraftSourceIds] = useState<string[]>(initialSelectedIds);
+
+  const liveSourceKind: 'satellite' | 'lidar' | undefined =
+    sourceKind === 'satellite' || sourceKind === 'lidar' ? sourceKind : undefined;
+
+  useDmrvLiveReportSync(projectId, 'satellite-config', {
+    draftSourceSelections: liveSourceKind
+      ? { [liveSourceKind]: draftSourceIds }
+      : undefined,
+  });
   const typeTitle = dmrvType?.title ?? typeId;
 
   const aiContextSummary = useMemo(
@@ -161,6 +181,12 @@ export default function DmrvSourceConfiguratorPage({
           .
         </p>
 
+        <DmrvWorkflowShell
+          projectId={projectId}
+          categorySlug={categorySlug}
+          typeId={typeId}
+          workflowStep="satellite-config"
+        >
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]">
           <DmrvSourceConfigurator
             dmrvTypeId={typeId}
@@ -169,6 +195,7 @@ export default function DmrvSourceConfiguratorPage({
             projectId={projectId}
             onClose={handleBack}
             onSaveSelectedSources={handleSave}
+            onDraftSelectionChange={setDraftSourceIds}
             initialSelectedIds={initialSelectedIds}
           />
           <DmrvAiConfigHelper
@@ -177,6 +204,7 @@ export default function DmrvSourceConfiguratorPage({
             autofillPrompt={`Suggest ${sourceKind} mission/source IDs for ${typeTitle}. Return JSON: { "selectedSourceIds": ["id1","id2"] } using catalog missions appropriate for this MRV type.`}
           />
         </div>
+        </DmrvWorkflowShell>
       </div>
     </div>
   );

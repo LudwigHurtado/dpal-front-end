@@ -1,4 +1,5 @@
 import { apiUrl, API_ROUTES, CARBON_PROJECT_LEDGER } from '../../../../constants';
+import { emitDmrvReportDirty } from '../reporting/dmrvReportEvents';
 import type { DmrvProjectContext, DmrvProjectStatus, DmrvProjectValidationResult } from './dmrvProjectContextTypes';
 
 const STORAGE_KEY = 'dpal_dmrv_project_contexts_v1';
@@ -111,6 +112,7 @@ export function createDmrvProjectContext(payload: DmrvProjectContext): DmrvProje
   const saved = { ...payload, updatedAt: new Date().toISOString(), status: deriveProjectStatus(payload) };
   map[saved.projectId] = saved;
   writeAll(map);
+  emitDmrvReportDirty(saved.projectId);
   return saved;
 }
 

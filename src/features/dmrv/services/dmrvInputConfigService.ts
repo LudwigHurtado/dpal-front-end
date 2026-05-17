@@ -1,4 +1,5 @@
 import { apiUrl, API_ROUTES } from '../../../../constants';
+import { emitDmrvReportDirty } from '../reporting/dmrvReportEvents';
 import { createEnvironmentalEvidencePacket } from '../../../services/environmentalEvidencePacketsApi';
 import { fetchUsgs3depTerrainEvidenceForProject } from '../utils/usgs3depTerrainEvidence';
 import type { DmrvInputConfigType } from '../dmrvInputRegistry';
@@ -164,11 +165,18 @@ function defaultDataSourceSettings(configType: DmrvInputConfigType): Record<stri
         plotId: '',
         latitude: '',
         longitude: '',
+        gpsAccuracySource: '',
         speciesLandCover: '',
         sampleDate: '',
         surveyor: '',
+        plotSizeRadius: '',
+        biomassEvidence: '',
+        photoAttachments: '',
+        provenanceNotes: '',
         photosRequired: true,
         minimumPlotCount: '3',
+        aiDraftGenerated: false,
+        aiDraftReviewed: false,
       };
     case 'biomass':
       return {
@@ -257,6 +265,7 @@ export function saveDmrvInputConfig(config: DmrvInputConfig): DmrvInputConfig {
   };
   map[storageKey(saved.projectId, saved.categorySlug, saved.inputKey)] = saved;
   writeAll(map);
+  emitDmrvReportDirty(saved.projectId);
   return saved;
 }
 

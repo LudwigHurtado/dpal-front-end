@@ -6,6 +6,8 @@ import { DmrvInfographicBoard } from './components/DmrvInfographicBoard';
 import { DmrvWorkflowPanel } from './components/DmrvWorkflowPanel';
 import { getCategoryBySlug, getConnector, type DmrvType } from './dmrvRegistry';
 import { openDmrvConnector } from './dmrvNavigation';
+import { DmrvWorkflowShell } from './reporting/DmrvWorkflowShell';
+import { useDmrvLiveReportSync } from './reporting/useDmrvLiveReportSync';
 
 export type DmrvCategoryPageProps = {
   onReturn?: () => void;
@@ -72,21 +74,45 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
         />
 
         {selectedType && showWorkflow ? (
-          <DmrvWorkflowSection
-            selectedType={selectedType}
-            connectors={connectors}
-            activeConnectorId={activeConnectorId}
-            workflowStep={workflowStep}
-            onWorkflowStepChange={setWorkflowStep}
-            onConnectorOpen={handleConnectorOpen}
-            onConnectorClose={() => setActiveConnectorId(null)}
-            onNavigate={onNavigate}
-            navigate={navigate}
-            showBlockchain={showBlockchain}
-            mockHash={mockHash}
-            onToggleBlockchain={() => setShowBlockchain((v) => !v)}
-            onEvidencePacket={() => onNavigate?.('previewEvidencePacket')}
-          />
+          projectId && categorySlug ? (
+            <CategoryWorkflowWithLiveReport
+              projectId={projectId}
+              categorySlug={categorySlug}
+              typeId={selectedType.id}
+            >
+              <DmrvWorkflowSection
+                selectedType={selectedType}
+                connectors={connectors}
+                activeConnectorId={activeConnectorId}
+                workflowStep={workflowStep}
+                onWorkflowStepChange={setWorkflowStep}
+                onConnectorOpen={handleConnectorOpen}
+                onConnectorClose={() => setActiveConnectorId(null)}
+                onNavigate={onNavigate}
+                navigate={navigate}
+                showBlockchain={showBlockchain}
+                mockHash={mockHash}
+                onToggleBlockchain={() => setShowBlockchain((v) => !v)}
+                onEvidencePacket={() => onNavigate?.('previewEvidencePacket')}
+              />
+            </CategoryWorkflowWithLiveReport>
+          ) : (
+            <DmrvWorkflowSection
+              selectedType={selectedType}
+              connectors={connectors}
+              activeConnectorId={activeConnectorId}
+              workflowStep={workflowStep}
+              onWorkflowStepChange={setWorkflowStep}
+              onConnectorOpen={handleConnectorOpen}
+              onConnectorClose={() => setActiveConnectorId(null)}
+              onNavigate={onNavigate}
+              navigate={navigate}
+              showBlockchain={showBlockchain}
+              mockHash={mockHash}
+              onToggleBlockchain={() => setShowBlockchain((v) => !v)}
+              onEvidencePacket={() => onNavigate?.('previewEvidencePacket')}
+            />
+          )
         ) : null}
 
         <p className="mt-6 text-center text-[10px] leading-relaxed text-slate-500">
@@ -95,6 +121,30 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
         </p>
       </div>
     </div>
+  );
+}
+
+function CategoryWorkflowWithLiveReport({
+  projectId,
+  categorySlug,
+  typeId,
+  children,
+}: {
+  projectId: string;
+  categorySlug: string;
+  typeId: string;
+  children: React.ReactNode;
+}): React.ReactElement {
+  useDmrvLiveReportSync(projectId, 'category-hub');
+  return (
+    <DmrvWorkflowShell
+      projectId={projectId}
+      categorySlug={categorySlug}
+      typeId={typeId}
+      workflowStep="category-hub"
+    >
+      {children}
+    </DmrvWorkflowShell>
   );
 }
 

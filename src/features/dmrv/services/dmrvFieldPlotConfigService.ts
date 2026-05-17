@@ -15,7 +15,16 @@ import type {
   FieldPlotSuggestion,
   FieldPlotValidationRule,
 } from './dmrvFieldPlotConfigTypes';
-import { settingsToFieldPlot, fieldPlotToSettings } from './dmrvFieldPlotConfigTypes';
+import {
+  settingsToFieldPlot,
+  fieldPlotToSettings,
+  type FieldPlotConfig,
+} from './dmrvFieldPlotConfigTypes';
+
+function plotStr(plot: FieldPlotConfig, key: FieldPlotSettingKey): string {
+  const v = plot[key];
+  return typeof v === 'string' ? v.trim() : '';
+}
 
 /** DEV FALLBACK ONLY — replace with backend persistence when /api/dmrv/field-plots exists. */
 const DEV_FALLBACK_LABEL = 'DEV FALLBACK ONLY — replace with backend persistence.';
@@ -265,7 +274,7 @@ export function buildFieldPlotValidationRules(
 ): FieldPlotValidationRule[] {
   const reportingStart = project?.reporting.startDate?.trim() ?? '';
   const reportingEnd = project?.reporting.endDate?.trim() ?? '';
-  const surveyDate = plot.sampleDate.trim();
+  const surveyDate = plotStr(plot, 'sampleDate');
   const surveyInPeriod =
     surveyDate &&
     reportingStart &&
@@ -273,7 +282,7 @@ export function buildFieldPlotValidationRules(
     surveyDate >= reportingStart &&
     surveyDate <= reportingEnd;
 
-  const coordsOk = Boolean(plot.latitude.trim() && plot.longitude.trim());
+  const coordsOk = Boolean(plotStr(plot, 'latitude') && plotStr(plot, 'longitude'));
   const aoiOk = Boolean(
     project?.location.aoiId?.trim() ||
       project?.location.aoiGeoJson?.trim() ||
@@ -309,21 +318,21 @@ export function buildFieldPlotValidationRules(
       id: 'land-cover',
       name: 'Species / land-cover type required',
       whyItMatters: 'Land-cover class links ground plots to satellite land-cover and biomass models.',
-      status: plot.speciesLandCover.trim() ? 'pass' : 'missing',
+      status: plotStr(plot, 'speciesLandCover') ? 'pass' : 'missing',
       fieldKey: 'speciesLandCover',
     },
     {
       id: 'attachments',
       name: 'At least one evidence attachment recommended',
       whyItMatters: 'Photos and field notes help validators confirm the plot was visited.',
-      status: plot.photoAttachments.trim() ? 'pass' : 'needs_review',
+      status: plotStr(plot, 'photoAttachments') ? 'pass' : 'needs_review',
       fieldKey: 'photoAttachments',
     },
     {
       id: 'provenance',
       name: 'Provenance notes required before anchoring',
       whyItMatters: 'Reviewers must trace who collected data and how it was verified.',
-      status: plot.provenanceNotes.trim() ? 'pass' : 'missing',
+      status: plotStr(plot, 'provenanceNotes') ? 'pass' : 'missing',
       fieldKey: 'provenanceNotes',
     },
     {
@@ -338,7 +347,10 @@ export function buildFieldPlotValidationRules(
       name: 'Blockchain anchor disabled until minimum fields are complete',
       whyItMatters: 'Anchoring incomplete field evidence can mislead downstream reviewers.',
       status:
-        coordsOk && plot.speciesLandCover.trim() && plot.provenanceNotes.trim() && plot.aiDraftReviewed
+        coordsOk &&
+        plotStr(plot, 'speciesLandCover') &&
+        plotStr(plot, 'provenanceNotes') &&
+        plot.aiDraftReviewed
           ? 'pass'
           : 'missing',
       fixHint: 'Complete coordinates, land cover, provenance, and review AI suggestions first.',
@@ -361,11 +373,11 @@ export function computeFieldPlotIntegrity(
     { label: 'Project name configured', done: Boolean(project?.projectName?.trim()) },
     { label: 'Location / AOI', done: Boolean(project?.location.aoiId?.trim() || project?.location.aoiGeoJson?.trim()) },
     { label: 'Methodology', done: Boolean(project?.methodology.name?.trim()) },
-    { label: 'Field plot coordinates', done: Boolean(plot.latitude.trim() && plot.longitude.trim()) },
-    { label: 'Species / land-cover', done: Boolean(plot.speciesLandCover.trim()) },
-    { label: 'Survey date', done: Boolean(plot.sampleDate.trim()) },
-    { label: 'Provenance notes', done: Boolean(plot.provenanceNotes.trim()) },
-    { label: 'Evidence attachments noted', done: Boolean(plot.photoAttachments.trim()) },
+    { label: 'Field plot coordinates', done: Boolean(plotStr(plot, 'latitude') && plotStr(plot, 'longitude')) },
+    { label: 'Species / land-cover', done: Boolean(plotStr(plot, 'speciesLandCover')) },
+    { label: 'Survey date', done: Boolean(plotStr(plot, 'sampleDate')) },
+    { label: 'Provenance notes', done: Boolean(plotStr(plot, 'provenanceNotes')) },
+    { label: 'Evidence attachments noted', done: Boolean(plotStr(plot, 'photoAttachments')) },
     { label: 'AI draft reviewed', done: Boolean(plot.aiDraftReviewed) },
     { label: 'Evidence packet generated', done: Boolean(config.evidencePacketId) },
   ];
@@ -388,7 +400,7 @@ export function saveFieldPlotConfig(config: DmrvInputConfig): DmrvInputConfig {
 }
 
 export function gatherEvidenceSourceLabels(projectId: string, typeId: string): string[] {
-  const kinds = ['evidence', 'satellite', 'ground'] as const;
+  const kinds = ['satellite', 'lidar', 'field', 'blockchain'] as const;
   const labels: string[] = [];
   for (const kind of kinds) {
     const ids = getSelectedSourceIds(projectId, typeId, kind);

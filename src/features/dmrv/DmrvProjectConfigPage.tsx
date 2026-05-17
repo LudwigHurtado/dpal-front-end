@@ -35,6 +35,14 @@ import {
 } from './services/dmrvProjectContextService';
 import { syncDmrvInputConfigsProjectContext } from './services/dmrvInputConfigService';
 import type { DmrvMethodologyDomain, DmrvProjectContext } from './services/dmrvProjectContextTypes';
+import { DmrvWorkflowShell } from './reporting/DmrvWorkflowShell';
+import { DMRV_REPORT_MILESTONES } from './reporting/dmrvReportMilestones';
+import {
+  anchorReportVersion,
+  rebuildAndPersistDmrvReport,
+  saveReportSnapshot,
+} from './reporting/dmrvReportStore';
+import { useDmrvLiveReportSync } from './reporting/useDmrvLiveReportSync';
 
 export type DmrvProjectConfigPageProps = {
   onReturn?: () => void;
@@ -99,6 +107,12 @@ export default function DmrvProjectConfigPage({
   }, [ctx?.location.aoiGeoJson, ctx?.projectId]);
 
   const validation = useMemo(() => (ctx ? validateDmrvProjectContext(ctx) : null), [ctx]);
+
+  const liveProjectId = ctx?.projectId || defaultDmrvProjectId(categorySlug, typeId);
+  useDmrvLiveReportSync(liveProjectId, 'project-config', {
+    projectContext: ctx,
+    enabled: Boolean(ctx),
+  });
 
   const workflowLinks = useMemo(
     () => (ctx ? computeDmrvProjectWorkflowLinks(ctx, validation) : []),
@@ -353,6 +367,12 @@ export default function DmrvProjectConfigPage({
     }
     setCtx(saved);
     syncDmrvInputConfigsProjectContext(saved.projectId);
+    rebuildAndPersistDmrvReport(saved.projectId, {
+      actor: 'user',
+      workflowStep: 'project-config',
+      changeSummary: 'Project identity, AOI, methodology, and reporting period saved',
+    });
+    saveReportSnapshot(saved.projectId, DMRV_REPORT_MILESTONES.projectConfig, 'project-config');
     setNotice('Project configuration saved — satellite and evidence configs linked to this AOI.');
     navigate(dmrvCategoryPath(categorySlug, typeId, saved.projectId), { replace: true });
   }, [categorySlug, ctx, isNew, navigate, typeId]);
@@ -424,7 +444,24 @@ export default function DmrvProjectConfigPage({
         },
         status: 'blockchain_ready',
       });
-      if (next) setCtx(next);
+      if (next) {
+        setCtx(next);
+        rebuildAndPersistDmrvReport(next.projectId, {
+          actor: 'user',
+          workflowStep: 'blockchain-anchor',
+          changeSummary: `Project blockchain identity anchored (${result.ledgerRecordId ?? 'reference'})`,
+          hash: result.configHash,
+        });
+        const report = saveReportSnapshot(next.projectId, 'Blockchain Anchor v0.9', 'blockchain-anchor');
+        const latest = report.versions[report.versions.length - 1];
+        if (latest) {
+          void anchorReportVersion(next.projectId, latest.versionId, {
+            evidenceBundleHash: result.configHash,
+            actor: 'user',
+            transactionRef: result.ledgerRecordId,
+          });
+        }
+      }
       setNotice('Project identity anchored via configured ledger adapter.');
     } else {
       setCtx((prev) =>
@@ -454,7 +491,7 @@ export default function DmrvProjectConfigPage({
 
   return (
     <div className="min-h-full bg-white text-slate-900">
-      <div className="mx-auto w-full max-w-[min(100%,1200px)] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[min(100%,1520px)] px-4 py-6 sm:px-6 lg:px-8">
         <DmrvBreadcrumb
           crumbs={[
             { label: 'DMRV', onClick: () => navigate('/dmrv') },
@@ -523,6 +560,12 @@ export default function DmrvProjectConfigPage({
           </p>
         ) : null}
 
+        <DmrvWorkflowShell
+          projectId={ctx.projectId || defaultDmrvProjectId(categorySlug, typeId)}
+          categorySlug={categorySlug}
+          typeId={typeId}
+          workflowStep="project-config"
+        >
         <DmrvAiConfigHelper
           variant="project"
           contextSummary={aiContextSummary}
@@ -781,6 +824,8 @@ export default function DmrvProjectConfigPage({
             }}
           />
         </div>
+
+        </DmrvWorkflowShell>
 
         {onReturn ? (
           <button type="button" onClick={onReturn} className="mt-4 text-sm font-semibold text-slate-600 underline">

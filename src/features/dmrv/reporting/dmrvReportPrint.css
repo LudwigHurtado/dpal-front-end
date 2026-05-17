@@ -1,0 +1,29 @@
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .dmrv-report-print-root,
+  .dmrv-report-print-root * {
+    visibility: visible;
+  }
+
+  .dmrv-report-print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    background: white;
+    color: #0f172a;
+  }
+
+  .dmrv-report-no-print {
+    display: none !important;
+  }
+
+  .dmrv-report-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

@@ -36,6 +36,7 @@ import carbonpuraRouter from './routes/carbonpura';
 import cadTrustRouter from './routes/cadTrust';
 import climatiqRoutes from './routes/climatiqRoutes';
 import usgs3depRoutes from './routes/usgs3depRoutes';
+import dmrvReportsRouter from './routes/dmrvReports';
 import { getProviderUsageSummary } from './services/providerRequestGuards';
 import { prisma } from './lib/prisma';
 import { startResolutionDispatcher } from './lib/resolutionDispatcher';
@@ -181,6 +182,7 @@ app.use('/api/partners/carbonpura', carbonpuraRouter);
 app.use('/api/cadtrust', cadTrustRouter);
 app.use('/api/climatiq', climatiqRoutes);
 app.use('/api/providers/usgs-3dep', usgs3depRoutes);
+app.use('/api/dmrv/reports', dmrvReportsRouter);
 
 if (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEBUG_PROVIDER_USAGE === 'true') {
   app.get('/api/debug/provider-usage', (_req, res) => {

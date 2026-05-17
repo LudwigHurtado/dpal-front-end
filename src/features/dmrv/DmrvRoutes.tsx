@@ -5,9 +5,10 @@ import DmrvHubPage from './DmrvHubPage';
 import DmrvInputConfigPage from './DmrvInputConfigPage';
 import DmrvProjectConfigPage from './DmrvProjectConfigPage';
 import DmrvSourceConfiguratorPage from './DmrvSourceConfiguratorPage';
+import DmrvReportPreviewPage from './reporting/DmrvReportPreviewPage';
 import { getCategoryBySlug } from './dmrvRegistry';
 import { resolveDmrvInputDef } from './dmrvInputRegistry';
-import { dmrvInputConfigPath } from './dmrvNavigation';
+import { dmrvInputConfigPath, dmrvReportPreviewPath } from './dmrvNavigation';
 import { defaultDmrvProjectId } from './services/dmrvProjectContextService';
 
 export type DmrvRoutesProps = {
@@ -68,6 +69,40 @@ function DmrvSourceStackGuard(props: DmrvRoutesProps): React.ReactElement {
   return <DmrvSourceConfiguratorPage {...props} />;
 }
 
+/** Resolve /dmrv/report/:reportId → project report preview URL. */
+/** `/dmrv/:categorySlug/report-preview?projectId=&typeId=` → project report preview. */
+function DmrvCategoryReportPreviewRedirect(): React.ReactElement {
+  const { categorySlug = '' } = useParams<{ categorySlug: string }>();
+  const [searchParams] = useSearchParams();
+  const typeId = searchParams.get('typeId') ?? 'forest-land-use';
+  const projectId = searchParams.get('projectId') ?? defaultDmrvProjectId(categorySlug, typeId);
+  if (!getCategoryBySlug(categorySlug)) {
+    return <Navigate to="/dmrv" replace />;
+  }
+  return <Navigate to={dmrvReportPreviewPath(projectId, categorySlug, typeId)} replace />;
+}
+
+function DmrvReportByIdRedirect(): React.ReactElement {
+  const { reportId = '' } = useParams<{ reportId: string }>();
+  try {
+    const raw = localStorage.getItem('dpal_dmrv_live_reports_v1');
+    const map = raw ? (JSON.parse(raw) as Record<string, { reportId: string; projectId: string; categoryId: string; typeId: string }>) : {};
+    const hit = Object.values(map).find((r) => r.reportId === reportId);
+    if (hit) {
+      const q = new URLSearchParams({ typeId: hit.typeId });
+      return (
+        <Navigate
+          to={`/dmrv/projects/${encodeURIComponent(hit.projectId)}/${encodeURIComponent(hit.categoryId)}/report?${q}`}
+          replace
+        />
+      );
+    }
+  } catch {
+    /* ignore */
+  }
+  return <Navigate to="/dmrv" replace />;
+}
+
 export default function DmrvRoutes({ onReturn, onNavigate }: DmrvRoutesProps): React.ReactElement {
   return (
     <Routes>
@@ -86,6 +121,12 @@ export default function DmrvRoutes({ onReturn, onNavigate }: DmrvRoutesProps): R
           path="projects/:projectId/:categorySlug/sources/:sourceKind"
           element={<DmrvSourceStackGuard onReturn={onReturn} />}
         />
+        <Route
+          path="projects/:projectId/:categorySlug/report"
+          element={<DmrvReportPreviewPage />}
+        />
+        <Route path="report/:reportId" element={<DmrvReportByIdRedirect />} />
+        <Route path=":categorySlug/report-preview" element={<DmrvCategoryReportPreviewRedirect />} />
         <Route path=":categorySlug/config/:inputKey" element={<DmrvLegacyInputRedirect />} />
         <Route
           path=":categorySlug"

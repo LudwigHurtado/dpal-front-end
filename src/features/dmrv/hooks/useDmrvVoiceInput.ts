@@ -27,6 +27,7 @@ export type UseDmrvVoiceInputResult = {
   startListening: () => void;
   stopListening: () => void;
   clearTranscript: () => void;
+  completeProcessing: () => void;
 };
 
 export function useDmrvVoiceInput(options: UseDmrvVoiceInputOptions = {}): UseDmrvVoiceInputResult {
@@ -65,7 +66,7 @@ export function useDmrvVoiceInput(options: UseDmrvVoiceInputOptions = {}): UseDm
   const scheduleAutoSubmit = useCallback(() => {
     clearSilenceTimer();
     silenceTimerRef.current = setTimeout(() => {
-      const full = `${finalBufferRef.current} ${liveTranscript}`.trim();
+      const full = finalBufferRef.current.trim();
       if (full.length < MIN_SUBMIT_CHARS || submittedRef.current) return;
       submittedRef.current = true;
       setState('processing');
@@ -81,7 +82,7 @@ export function useDmrvVoiceInput(options: UseDmrvVoiceInputOptions = {}): UseDm
         }
       }
     }, silenceMs);
-  }, [clearSilenceTimer, liveTranscript, silenceMs]);
+  }, [clearSilenceTimer, silenceMs]);
 
   const resetBuffers = useCallback(() => {
     finalBufferRef.current = '';
@@ -213,6 +214,11 @@ export function useDmrvVoiceInput(options: UseDmrvVoiceInputOptions = {}): UseDm
     setState(isSupported ? 'ready' : 'unsupported');
   }, [isSupported, resetBuffers]);
 
+  const completeProcessing = useCallback(() => {
+    submittedRef.current = false;
+    setState(isSupported ? 'ready' : 'unsupported');
+  }, [isSupported]);
+
   useEffect(
     () => () => {
       clearSilenceTimer();
@@ -247,9 +253,6 @@ export function useDmrvVoiceInput(options: UseDmrvVoiceInputOptions = {}): UseDm
     startListening,
     stopListening,
     clearTranscript,
+    completeProcessing,
   };
-}
-
-export function markVoiceReady(setState: (s: VoiceInputState) => void): void {
-  setState('ready');
 }

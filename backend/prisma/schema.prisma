@@ -895,3 +895,98 @@ model CarbonPuraEvidencePacket {
   @@index([status])
   @@index([createdAt])
 }
+
+// ─── Living dMRV Report (structured JSON + versions + anchors) ───────────────
+
+model DmrvReport {
+  id            String   @id @default(cuid())
+  reportId      String   @unique
+  projectId     String
+  categoryId    String
+  reportType    String
+  status        String   @default("draft")
+  versionLabel  String   @default("1.0.0-cmi-draft")
+  reportJson    Json
+  readinessScore Int     @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sections  DmrvReportSection[]
+  versions  DmrvReportVersion[]
+  auditEvents DmrvReportAuditEvent[]
+  anchors   DmrvReportBlockchainAnchor[]
+
+  @@map("dmrv_reports")
+  @@index([projectId])
+  @@index([categoryId])
+  @@index([updatedAt])
+}
+
+model DmrvReportSection {
+  id           String   @id @default(cuid())
+  reportDbId   String
+  sectionId    String
+  title        String
+  workflowStep String
+  status       String
+  payload      Json?
+  updatedAt    DateTime @updatedAt
+
+  report DmrvReport @relation(fields: [reportDbId], references: [id], onDelete: Cascade)
+
+  @@map("dmrv_report_sections")
+  @@index([reportDbId])
+  @@unique([reportDbId, sectionId])
+}
+
+model DmrvReportVersion {
+  id           String   @id @default(cuid())
+  reportDbId   String
+  versionId    String   @unique
+  label        String
+  workflowStep String
+  reportJsonHash String
+  anchored     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  report DmrvReport @relation(fields: [reportDbId], references: [id], onDelete: Cascade)
+
+  @@map("dmrv_report_versions")
+  @@index([reportDbId])
+}
+
+model DmrvReportAuditEvent {
+  id           String   @id @default(cuid())
+  reportDbId   String
+  actor        String
+  workflowStep String
+  fieldChanged String?
+  newSummary   String
+  hash         String?
+  createdAt    DateTime @default(now())
+
+  report DmrvReport @relation(fields: [reportDbId], references: [id], onDelete: Cascade)
+
+  @@map("dmrv_report_audit_events")
+  @@index([reportDbId])
+  @@index([createdAt])
+}
+
+model DmrvReportBlockchainAnchor {
+  id                 String   @id @default(cuid())
+  reportDbId         String
+  versionId          String
+  evidencePacketId   String?
+  reportJsonHash     String
+  evidenceBundleHash String?
+  transactionRef     String?
+  anchorStatus       String   @default("anchored")
+  actor              String   @default("system")
+  anchoredAt         DateTime @default(now())
+
+  report DmrvReport @relation(fields: [reportDbId], references: [id], onDelete: Cascade)
+
+  @@map("dmrv_report_blockchain_anchors")
+  @@index([reportDbId])
+  @@index([versionId])
+}

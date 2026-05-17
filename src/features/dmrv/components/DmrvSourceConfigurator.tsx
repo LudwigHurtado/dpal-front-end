@@ -28,6 +28,7 @@ import {
   type DmrvSourceConfiguratorKind,
 } from '../dmrvSensorCatalog';
 import { getDmrvProjectContext } from '../services/dmrvProjectContextService';
+import { GEDI_LIDAR_GALLERY } from './DmrvGediLidarGallery';
 
 export type DmrvSourceConfiguratorProps = {
   dmrvTypeId: string;
@@ -36,6 +37,7 @@ export type DmrvSourceConfiguratorProps = {
   projectId: string;
   onClose: () => void;
   onSaveSelectedSources: (ids: string[]) => void;
+  onDraftSelectionChange?: (ids: string[]) => void;
   initialSelectedIds?: string[];
 };
 
@@ -88,6 +90,7 @@ export function DmrvSourceConfigurator({
   projectId,
   onClose,
   onSaveSelectedSources,
+  onDraftSelectionChange,
   initialSelectedIds = [],
 }: DmrvSourceConfiguratorProps): React.ReactElement {
   const [draftIds, setDraftIds] = useState<string[]>(initialSelectedIds);
@@ -108,6 +111,10 @@ export function DmrvSourceConfigurator({
     const seed = initialSelectedIds.length > 0 ? initialSelectedIds : recommendedDefaults;
     setDraftIds(seed);
   }, [initialSelectedIds, recommendedDefaults]);
+
+  useEffect(() => {
+    onDraftSelectionChange?.(draftIds);
+  }, [draftIds, onDraftSelectionChange]);
 
   const toggle = useCallback(
     (id: string, checked: boolean) => {
@@ -203,7 +210,7 @@ export function DmrvSourceConfigurator({
                     checked={draftIds.includes(source.id)}
                     isRecommended={recommendedSet.has(source.id)}
                     onToggle={(checked) => toggle(source.id, checked)}
-                    showMissionArt={sourceKind === 'satellite'}
+                    showMissionArt={sourceKind === 'satellite' || Boolean(getSensorImageUrl(source))}
                   />
                 ))}
               </div>
@@ -355,15 +362,30 @@ function SourceCard({
     >
       {hasArt && imageUrl ? (
         <div className="relative border-b border-slate-100 bg-gradient-to-b from-slate-50 to-white">
-          <div className="flex min-h-[112px] items-center justify-center">
-            <SourceCardImage
-              src={imageUrl}
-              alt={`${source.name} spacecraft`}
-              sourceId={source.id}
-              uiIcon={source.uiIcon}
-            />
-          </div>
-          <div className="absolute right-2 top-2">
+          {source.id === 'gedi-lidar' ? (
+            <div className="divide-y divide-slate-100">
+              {GEDI_LIDAR_GALLERY.map((item) => (
+                <div key={item.src} className="flex min-h-[100px] items-center justify-center px-1 py-1">
+                  <SourceCardImage
+                    src={item.src}
+                    alt={item.alt}
+                    sourceId={source.id}
+                    uiIcon={source.uiIcon}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-[112px] items-center justify-center">
+              <SourceCardImage
+                src={imageUrl}
+                alt={`${source.name} spacecraft`}
+                sourceId={source.id}
+                uiIcon={source.uiIcon}
+              />
+            </div>
+          )}
+          <div className="absolute right-2 top-2 z-10">
             <input
               type="checkbox"
               checked={checked}
