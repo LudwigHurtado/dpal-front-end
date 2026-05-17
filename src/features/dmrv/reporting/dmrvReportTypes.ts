@@ -1,5 +1,24 @@
 import type { DmrvProjectContext } from '../services/dmrvProjectContextTypes';
 import type { DmrvInputConfig } from '../services/dmrvInputConfigTypes';
+import type {
+  DmrvBiomassSnapshot,
+  DmrvBlockchainAnchor,
+  DmrvEvidencePacketSummary,
+  DmrvReportEvidenceSummary,
+  DmrvSatelliteReview,
+  DmrvThreatRecord,
+  DmrvValidatorMission,
+} from './dmrvReportEvidenceTypes';
+
+export type {
+  DmrvSatelliteReview,
+  DmrvBiomassSnapshot,
+  DmrvThreatRecord,
+  DmrvValidatorMission,
+  DmrvEvidencePacketSummary,
+  DmrvBlockchainAnchor,
+  DmrvReportEvidenceSummary,
+} from './dmrvReportEvidenceTypes';
 
 export type DmrvReportType =
   | 'carbon'
@@ -274,6 +293,21 @@ export type DmrvReport = {
   calculationContext: DmrvCalculationContext;
   blockchainContext: DmrvBlockchainContext;
   interoperabilityContext: DmrvInteroperabilityContext;
+  /** Satellite review ledger (scene search, adapter tests, screening). */
+  satelliteReviewHistory: DmrvSatelliteReview[];
+  /** Baseline / current / comparison biomass snapshots. */
+  biomassTimeline: DmrvBiomassSnapshot[];
+  /** Formal threat & gap register. */
+  threatRegister: DmrvThreatRecord[];
+  /** Validator / field missions dispatched from threats or gaps. */
+  validatorMissions: DmrvValidatorMission[];
+  /** Evidence packet summaries linked to this report. */
+  evidencePackets: DmrvEvidencePacketSummary[];
+  /** Per-object blockchain anchor ledger (hashes only). */
+  blockchainAnchorLedger: DmrvBlockchainAnchor[];
+  /** Quick-read evidence metrics for panel + AI. */
+  evidenceSummary: DmrvReportEvidenceSummary;
+  unanchoredChanges: boolean;
   sections: DmrvReportSection[];
   auditTrail: DmrvAuditEvent[];
   readinessScore: DmrvReadinessScore;

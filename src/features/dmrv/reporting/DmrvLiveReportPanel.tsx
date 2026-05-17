@@ -8,6 +8,7 @@ import { generateDmrvEvidencePacket, listDmrvInputConfigsForProject } from '../s
 import { DmrvReportDisclaimer } from './DmrvReportDisclaimer';
 import { useDmrvReport } from './useDmrvReport';
 import { rebuildAndPersistDmrvReport } from './dmrvReportStore';
+import type { DmrvReportEvidenceSummary } from './dmrvReportEvidenceTypes';
 import type { DmrvReportSection } from './dmrvReportTypes';
 
 const STATUS_CHIP: Record<string, string> = {
@@ -59,18 +60,32 @@ export function DmrvLiveReportPanel({
     const missing = missingSections.map((s) => s.title).join(', ') || 'none';
     const needsReview = needsReviewSections.map((s) => s.title).join(', ') || 'none';
     const satellite = report.dataSourceContext.selectedSatellites || report.dataSourceContext.satelliteProvider;
-    const unanchored = report.anchorState.hasUnanchoredChanges
+    const s = report.evidenceSummary;
+    const unanchored = report.unanchoredChanges || report.anchorState.hasUnanchoredChanges
       ? 'This report has unanchored changes since the last blockchain anchor.'
       : 'Current report hash matches the last anchor (or no anchor yet).';
+    const lastReview = report.satelliteReviewHistory[report.satelliteReviewHistory.length - 1];
     return [
-      `Living dMRV report for ${report.projectContext?.projectName || projectId}.`,
+      `Living dMRV evidence report for ${report.projectContext?.projectName || projectId}.`,
       `Category: ${report.categoryLabel}, type: ${report.typeLabel}, template: ${report.reportType}.`,
+      lastReview
+        ? `Your last satellite review was ${s.lastSatelliteReviewAt} using ${lastReview.satellite} (${lastReview.status}).`
+        : 'No satellite review on record yet.',
+      s.baselineBiomassTonsPerHa !== 'Missing' && s.currentBiomassTonsPerHa === 'Missing'
+        ? 'Baseline biomass exists, but current biomass has not been calculated.'
+        : `Baseline biomass: ${s.baselineBiomassTonsPerHa}; current: ${s.currentBiomassTonsPerHa}; change: ${s.biomassChangeTonsPerHa}.`,
+      s.openThreatCount > 0
+        ? `I found ${s.openThreatCount} open threat(s). Ask if the user wants to create validator missions.`
+        : 'No open threats in the register.',
+      `Validator missions: ${s.validatorMissionCount}; evidence packets: ${s.evidencePacketCount}.`,
+      `Anchored version: ${s.anchoredVersionLabel}.`,
       `AOI: ${report.interoperabilityContext.metadata.aoiGeometrySummary || 'Not Yet Configured'}.`,
       `Methodology: ${report.methodologyContext.name || 'Missing'}.`,
-      `Satellite: ${satellite || 'Not Yet Configured'}; cloud limit: ${report.dataSourceContext.cloudCoverLimit || 'Missing'}; resolution: ${report.dataSourceContext.spatialResolution || 'Missing'}.`,
-      `Field plots: ${report.fieldPlotContext.plotCount} plot(s), status ${report.fieldPlotContext.status}.`,
+      `Satellite: ${satellite || 'Not Yet Configured'}; cloud limit: ${report.dataSourceContext.cloudCoverLimit || 'Missing'}.`,
+      `Field plots: ${report.fieldPlotContext.plotCount} plot(s) — ${report.fieldPlotContext.status === 'missing' ? 'incomplete for verifier review' : report.fieldPlotContext.status}.`,
       `Readiness ${report.readinessScore.overall}%. Missing sections: ${missing}. Needs review: ${needsReview}.`,
       unanchored,
+      `Verifier gaps: ${s.verifierReadinessGaps.join('; ') || 'none'}.`,
       aiSection
         ? `User asks about "${aiSection.title}" (${aiSection.status}). Missing hints: ${aiSection.missingHints.join('; ') || 'none'}.`
         : '',
@@ -148,7 +163,7 @@ export function DmrvLiveReportPanel({
           <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-white/70">
             Living report · v{report.version}
           </span>
-          <span className="text-sm font-bold">Live dMRV Report</span>
+          <span className="text-sm font-bold">Live dMRV Evidence Report</span>
         </span>
         {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
       </button>
@@ -164,9 +179,9 @@ export function DmrvLiveReportPanel({
             </span>
           </div>
 
-          {report.anchorState.hasUnanchoredChanges ? (
+          {(report.unanchoredChanges || report.anchorState.hasUnanchoredChanges) ? (
             <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-950">
-              This report has changes that have not yet been anchored.
+              Unanchored changes: Yes — this report has changes that have not yet been anchored.
             </p>
           ) : report.blockchainAnchors.length > 0 ? (
             <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-900">
@@ -191,6 +206,8 @@ export function DmrvLiveReportPanel({
               {needsReviewSections.length} need review
             </p>
           </div>
+
+          <EvidenceMetricsGrid summary={report.evidenceSummary} />
 
           <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-2.5 py-2 text-[10px] text-slate-600">
             <p>
@@ -239,16 +256,30 @@ export function DmrvLiveReportPanel({
 
           <div className="flex flex-col gap-2">
             <PanelBtn
-              label="Preview Report"
+              label="Preview Full Report"
               icon={<FileText className="h-3.5 w-3.5" />}
               onClick={() => navigate(dmrvReportPreviewPath(projectId, categorySlug, typeId))}
             />
             <PanelBtn
-              label="Export PDF / Print"
+              label={busy ? 'Anchoring…' : 'Anchor Snapshot'}
+              icon={<Shield className="h-3.5 w-3.5" />}
+              onClick={() => void handleAnchorReport()}
+              disabled={busy || !latestVersion}
+            />
+            <PanelBtn
+              label="Export PDF"
               icon={<Printer className="h-3.5 w-3.5" />}
               onClick={() =>
                 navigate(dmrvReportPreviewPath(projectId, categorySlug, typeId, { print: true }))
               }
+            />
+            <PanelBtn
+              label="Export JSON"
+              icon={<Copy className="h-3.5 w-3.5" />}
+              onClick={() => {
+                exportJson();
+                setNotice('Report JSON exported to clipboard/download flow.');
+              }}
             />
             <PanelBtn label="Copy Verifier Summary" icon={<Copy className="h-3.5 w-3.5" />} onClick={() => { copyVerifierSummary(); setNotice('Verifier summary copied.'); }} />
             <PanelBtn
@@ -270,12 +301,6 @@ export function DmrvLiveReportPanel({
               icon={<Package className="h-3.5 w-3.5" />}
               onClick={() => void handleAddToEvidencePacket()}
               disabled={busy}
-            />
-            <PanelBtn
-              label={busy ? 'Anchoring…' : 'Anchor Report'}
-              icon={<Shield className="h-3.5 w-3.5" />}
-              onClick={() => void handleAnchorReport()}
-              disabled={busy || !latestVersion}
             />
           </div>
 
@@ -347,6 +372,28 @@ function SectionList({
         </ul>
       )}
     </div>
+  );
+}
+
+function EvidenceMetricsGrid({ summary }: { summary: DmrvReportEvidenceSummary }): React.ReactElement {
+  const rows: { label: string; value: string }[] = [
+    { label: 'Last satellite review', value: summary.lastSatelliteReviewAt },
+    { label: 'Last biomass update', value: summary.lastBiomassUpdateAt },
+    { label: 'Baseline biomass', value: summary.baselineBiomassTonsPerHa },
+    { label: 'Current biomass', value: summary.currentBiomassTonsPerHa },
+    { label: 'Open threats', value: String(summary.openThreatCount) },
+    { label: 'Validator missions', value: String(summary.validatorMissionCount) },
+    { label: 'Evidence packets', value: String(summary.evidencePacketCount) },
+  ];
+  return (
+    <dl className="grid grid-cols-2 gap-x-2 gap-y-1.5 rounded-lg border border-[#1e3a5f]/15 bg-[#f8fafc] px-2.5 py-2 text-[10px]">
+      {rows.map((r) => (
+        <div key={r.label}>
+          <dt className="font-bold uppercase tracking-wide text-slate-500">{r.label}</dt>
+          <dd className="font-semibold text-slate-800">{r.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

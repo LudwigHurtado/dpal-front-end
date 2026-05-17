@@ -36,6 +36,7 @@ import {
 import { syncDmrvInputConfigsProjectContext } from './services/dmrvInputConfigService';
 import type { DmrvMethodologyDomain, DmrvProjectContext } from './services/dmrvProjectContextTypes';
 import { DmrvWorkflowShell } from './reporting/DmrvWorkflowShell';
+import { DmrvWorkflowReportHeader } from './reporting/DmrvWorkflowReportHeader';
 import { DMRV_REPORT_MILESTONES } from './reporting/dmrvReportMilestones';
 import {
   anchorReportVersion,
@@ -543,6 +544,15 @@ export default function DmrvProjectConfigPage({
           />
           <ActionBtn label="Open satellite (quick)" onClick={handleOpenSatelliteConfig} />
         </div>
+
+        {liveProjectId && categorySlug ? (
+          <DmrvWorkflowReportHeader
+            projectId={liveProjectId}
+            categorySlug={categorySlug}
+            typeId={typeId}
+            className="mb-4"
+          />
+        ) : null}
 
         <DmrvWorkflowProgress activeStep={0} />
 

@@ -21,6 +21,7 @@ import {
   saveSelectedSourceIds,
 } from './services/dmrvSourceSelectionService';
 import { DmrvWorkflowShell } from './reporting/DmrvWorkflowShell';
+import { DmrvWorkflowReportHeader } from './reporting/DmrvWorkflowReportHeader';
 import { DMRV_REPORT_MILESTONES } from './reporting/dmrvReportMilestones';
 import { rebuildAndPersistDmrvReport, saveReportSnapshot } from './reporting/dmrvReportStore';
 import { useDmrvLiveReportSync } from './reporting/useDmrvLiveReportSync';
@@ -168,6 +169,13 @@ export default function DmrvSourceConfiguratorPage({
               label: sourceKind === 'lidar' ? 'LiDAR sources' : 'Satellite sources',
             },
           ]}
+        />
+
+        <DmrvWorkflowReportHeader
+          projectId={projectId}
+          categorySlug={categorySlug}
+          typeId={typeId}
+          className="mb-4"
         />
 
         <DmrvWorkflowProgress activeStep={2} />

@@ -55,6 +55,8 @@ import {
   markFieldPlotDraftReviewed,
 } from './services/dmrvFieldPlotConfigService';
 import { DmrvWorkflowShell } from './reporting/DmrvWorkflowShell';
+import { DmrvWorkflowReportHeader } from './reporting/DmrvWorkflowReportHeader';
+import { appendEvidencePacketToReport, recordSatelliteReviewFromConfig } from './reporting/dmrvReportEngine';
 import { DMRV_REPORT_MILESTONES } from './reporting/dmrvReportMilestones';
 import {
   anchorReportVersion,
@@ -334,9 +336,15 @@ export default function DmrvInputConfigPage({
         setSceneAutofillStatus(message);
         helpers.setStatus(message);
       });
+      if (config?.configType === 'satellite') {
+        recordSatelliteReviewFromConfig(config, {
+          sceneAutofill: true,
+          message: 'Scene configuration applied — run live Earth Observation scan when API is ready.',
+        });
+      }
       window.setTimeout(() => setSceneAutofillStatus(null), 2400);
     },
-    [applySceneField, typeTitle],
+    [applySceneField, config, typeTitle],
   );
 
   const sceneDs = config?.dataSourceSettings;
@@ -572,6 +580,9 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
     const result = await testDmrvInputSource(config);
     setBusy(null);
     setNotice(result.message);
+    if (config.configType === 'satellite') {
+      recordSatelliteReviewFromConfig(config, { ok: result.ok, message: result.message });
+    }
   }, [config]);
 
   const handleEvidence = useCallback(async () => {
@@ -589,6 +600,12 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
         sourceEvidenceId: result.packetId,
       });
       saveReportSnapshot(next.projectId, DMRV_REPORT_MILESTONES.evidencePacket, 'evidence-packet');
+      appendEvidencePacketToReport(next.projectId, {
+        packetId: result.packetId,
+        title: next.evidencePacket.title || next.inputLabel,
+        inputKeys: [next.inputKey],
+        status: 'generated',
+      });
     }
     setNotice(result.message);
   }, [config]);
@@ -709,6 +726,15 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
             {STATUS_LABELS[config.status]}
           </span>
         </header>
+
+        {projectId && categorySlug ? (
+          <DmrvWorkflowReportHeader
+            projectId={projectId}
+            categorySlug={categorySlug}
+            typeId={typeId}
+            className="mb-4"
+          />
+        ) : null}
 
         <DmrvWorkflowProgress activeStep={isFieldPlots ? 3 : 2} />
 

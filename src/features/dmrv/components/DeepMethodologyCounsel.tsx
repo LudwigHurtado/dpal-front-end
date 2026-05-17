@@ -5,6 +5,7 @@ import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/compone
 import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
 import type { DmrvMethodologyPreset } from '../dmrvMethodologyPresets';
 import { METHODOLOGY_STATUS_STYLES } from '../dmrvMethodologyPresets';
+import { recordBiomassFromMethodologyCalc } from '../reporting/dmrvReportEngine';
 import {
   buildMethodologyExplanationBoard,
   calculateMethodologyExample,
@@ -411,7 +412,18 @@ export function DeepMethodologyCounsel({
     const result = calculateMethodologyExample(methodologyPreset ?? null, parsed, board?.calculatorMode);
     setCalcOutputs(result.outputs);
     if (board) setBoard({ ...board, calculatorOutputs: result.outputs });
-  }, [board, calcInputs, methodologyPreset]);
+    const hasBaseline = result.outputs.biomassTHa !== undefined || result.outputs.estimatedBiomassTonsPerHa !== undefined;
+    const snapshotType = hasBaseline && !board?.calculatorOutputs?.biomassTHa ? 'baseline' : 'current';
+    if (projectId?.trim()) {
+      recordBiomassFromMethodologyCalc(
+        projectId,
+        snapshotType,
+        result.outputs,
+        parsed,
+        methodologyPreset?.name ?? 'Methodology calculator',
+      );
+    }
+  }, [board, calcInputs, methodologyPreset, projectId]);
 
   const handleCopyTrace = useCallback(() => {
     if (!lastTrace) return;

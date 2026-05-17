@@ -1,4 +1,5 @@
 import { buildDmrvReport, type DmrvReportBuildOverrides } from './dmrvReportBuilder';
+import { ensureReportLedgers } from './dmrvReportEvidenceSummary';
 import { emitDmrvReportDirty, emitDmrvReportUpdated, DMRV_REPORT_DIRTY_EVENT, DMRV_REPORT_UPDATED_EVENT } from './dmrvReportEvents';
 import { computeDmrvReportJsonHashSync } from './dmrvReportHash';
 import type {
@@ -51,12 +52,20 @@ function migrateReport(report: DmrvReport): DmrvReport {
     evidencePacketHash: lastAnchor?.evidenceBundleHash,
     hasUnanchoredChanges: Boolean(lastAnchor && lastAnchor.reportJsonHash !== hash),
   };
-  return {
+  const withLedgers: DmrvReport = {
     ...report,
+    satelliteReviewHistory: report.satelliteReviewHistory ?? [],
+    biomassTimeline: report.biomassTimeline ?? [],
+    threatRegister: report.threatRegister ?? [],
+    validatorMissions: report.validatorMissions ?? [],
+    evidencePackets: report.evidencePackets ?? [],
+    blockchainAnchorLedger: report.blockchainAnchorLedger ?? [],
+    unanchoredChanges: report.unanchoredChanges ?? anchorState.hasUnanchoredChanges,
     versions,
     blockchainAnchors,
     anchorState: { ...anchorState, currentReportHash: hash },
   };
+  return ensureReportLedgers(withLedgers);
 }
 
 function appendAudit(report: DmrvReport, meta: DmrvReportSyncMeta): DmrvAuditEvent[] {
@@ -112,7 +121,36 @@ export function rebuildDmrvReportSilent(
   overrides?: DmrvReportBuildOverrides,
 ): DmrvReport {
   const previous = getDmrvReport(projectId);
-  const next = withAnchorState(migrateReport(buildDmrvReport(projectId, previous, overrides)));
+  const built = buildDmrvReport(projectId, previous, overrides);
+  const next = withAnchorState(migrateReport(built));
+  return persistReport(projectId, next);
+}
+
+/** Patch evidence ledgers without wiping workflow-derived sections. */
+export function patchDmrvReport(
+  projectId: string,
+  mutator: (report: DmrvReport) => DmrvReport,
+  meta?: Partial<DmrvReportSyncMeta>,
+): DmrvReport {
+  rebuildDmrvReportSilent(projectId);
+  const current = getDmrvReport(projectId);
+  if (!current) return rebuildAndPersistDmrvReport(projectId, meta);
+  let next = mutator(current);
+  if (meta?.changeSummary) {
+    next = {
+      ...next,
+      auditTrail: appendAudit(next, {
+        workflowStep: meta.workflowStep ?? 'evidence-engine',
+        changeSummary: meta.changeSummary,
+        actor: meta.actor,
+        fieldChanged: meta.fieldChanged,
+        previousSummary: meta.previousSummary,
+        sourceEvidenceId: meta.sourceEvidenceId,
+        hash: meta.hash,
+      }),
+    };
+  }
+  next = withAnchorState(ensureReportLedgers(next));
   return persistReport(projectId, next);
 }
 
@@ -174,6 +212,14 @@ export function saveReportSnapshot(
       actor: 'user',
       hash,
     }),
+  });
+  void import('./dmrvReportEvents').then(({ dispatchDmrvReportEvent }) => {
+    void import('./dmrvReportEvidenceTypes').then(({ DMRV_REPORT_EVENT_TYPES }) => {
+      dispatchDmrvReportEvent(projectId, DMRV_REPORT_EVENT_TYPES.REPORT_VERSION_SAVED, {
+        versionId: ver.versionId,
+        label,
+      });
+    });
   });
   return persistReport(projectId, next);
 }

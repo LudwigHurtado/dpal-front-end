@@ -28,8 +28,15 @@ import {
   OFFLINE_MISSION_TEMPLATES,
 } from "./offlineAiData";
 import { searchLiveIntelWithBrave, isBraveSearchEnabled } from "./braveSearchService";
+import { getDpalApiConfig } from "../src/config/api";
 
-const FLASH_TEXT_MODEL = "gemini-3-flash-preview";
+/** Stable default for DMRV helpers and ad-hoc prompts (override with VITE_GEMINI_MODEL). */
+const DEFAULT_TEXT_MODEL =
+  (import.meta.env.VITE_GEMINI_MODEL as string | undefined)?.trim() || "gemini-2.5-flash";
+
+const FLASH_TEXT_MODEL = DEFAULT_TEXT_MODEL;
+
+const RAILWAY_PRODUCTION_API_BASE = "https://web-production-a27b.up.railway.app";
 
 const getApiKey = () => import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -69,28 +76,33 @@ type GeminiGenerateParams = {
   config?: unknown;
 };
 
-/**
- * Prefer in-browser key when set (existing behavior). Otherwise POST to /api/ai/gemini when VITE_USE_SERVER_AI=true.
- */
-async function runGeminiGenerate(params: GeminiGenerateParams): Promise<{ text: string }> {
-  if (getApiKey()) {
-    const response = await getAiClient().models.generateContent({
-      model: params.model,
-      contents: params.contents as any,
-      config: params.config as any,
-    });
-    return { text: response.text ?? "" };
+function isLocalApiBase(base: string): boolean {
+  if (!base) return false;
+  try {
+    const host = new URL(base).hostname;
+    return host === "localhost" || host === "127.0.0.1";
+  } catch {
+    return false;
   }
-  if (!useServerGemini()) {
-    throw new AiError("NOT_CONFIGURED", "Neural link unconfigured. Device has no AI key.");
-  }
+}
+
+function buildGeminiProxyUrl(apiBase: string): string {
+  const path = API_ROUTES.AI_GEMINI;
+  const normalized = apiBase.trim().replace(/\/+$/, "");
+  return normalized ? `${normalized}${path}` : buildApiUrl(path);
+}
+
+async function postServerGemini(
+  params: GeminiGenerateParams,
+  apiBase: string,
+): Promise<{ text: string }> {
   let res: Response;
   try {
-    res = await fetch(buildApiUrl(API_ROUTES.AI_GEMINI), {
+    res = await fetch(buildGeminiProxyUrl(apiBase), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: params.model,
+        model: params.model || DEFAULT_TEXT_MODEL,
         contents: params.contents,
         config: params.config,
       }),
@@ -113,13 +125,62 @@ async function runGeminiGenerate(params: GeminiGenerateParams): Promise<{ text: 
 }
 
 /**
+ * When VITE_USE_SERVER_AI=true, prefer POST /api/ai/gemini (server-held key).
+ * Otherwise use an in-browser VITE_GEMINI_API_KEY when set.
+ */
+async function runGeminiGenerate(params: GeminiGenerateParams): Promise<{ text: string }> {
+  const request: GeminiGenerateParams = {
+    ...params,
+    model: params.model || DEFAULT_TEXT_MODEL,
+  };
+
+  if (useServerGemini()) {
+    const cfg = getDpalApiConfig();
+    const primaryBase =
+      cfg.apiBaseUrl ||
+      (cfg.aiServerUrl && cfg.aiServerUrl !== cfg.apiBaseUrl ? cfg.aiServerUrl : "") ||
+      getApiBaseLocal() ||
+      RAILWAY_PRODUCTION_API_BASE;
+
+    try {
+      return await postServerGemini(request, primaryBase);
+    } catch (err) {
+      const type = err instanceof AiError ? err.type : undefined;
+      const canRetryProduction =
+        import.meta.env.DEV &&
+        isLocalApiBase(primaryBase) &&
+        (type === "NOT_CONFIGURED" ||
+          type === "NETWORK_ERROR" ||
+          type === "TEMPORARY_FAILURE");
+
+      if (canRetryProduction) {
+        debugLog("Local AI proxy unavailable; retrying production API for Gemini.");
+        return await postServerGemini(request, RAILWAY_PRODUCTION_API_BASE);
+      }
+      throw err;
+    }
+  }
+
+  if (getApiKey()) {
+    const response = await getAiClient().models.generateContent({
+      model: request.model,
+      contents: request.contents as any,
+      config: request.config as any,
+    });
+    return { text: response.text ?? "" };
+  }
+
+  throw new AiError("NOT_CONFIGURED", "Neural link unconfigured. Device has no AI key.");
+}
+
+/**
  * Simple exported helper: run a plain text prompt through Gemini and return
  * the raw response string. Used by components that need ad-hoc AI scoring
  * without building a full GeminiGenerateParams object.
  */
 export async function runGeminiPrompt(prompt: string): Promise<string> {
   const { text } = await runGeminiGenerate({
-    model: "gemini-2.5-flash",
+    model: DEFAULT_TEXT_MODEL,
     contents: [{ role: "user", parts: [{ text: prompt }] }],
   });
   return text;
@@ -139,7 +200,7 @@ export type GeminiInlineImageInput = {
 export async function runGeminiWithImagePrompt(
   prompt: string,
   images: GeminiInlineImageInput[],
-  model = "gemini-2.5-flash",
+  model = DEFAULT_TEXT_MODEL,
 ): Promise<string> {
   if (!images.length) {
     return runGeminiPrompt(prompt);

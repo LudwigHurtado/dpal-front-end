@@ -10,6 +10,7 @@ import {
   resolveDmrvReportType,
   type DmrvReportSectionTemplate,
 } from './dmrvReportTemplates';
+import { ensureReportLedgers } from './dmrvReportEvidenceSummary';
 import type {
   DmrvBlockchainContext,
   DmrvCalculationContext,
@@ -881,27 +882,54 @@ export function buildDmrvReport(
       currentReportHash: '',
       hasUnanchoredChanges: false,
     },
+    satelliteReviewHistory: previous?.satelliteReviewHistory ?? [],
+    biomassTimeline: previous?.biomassTimeline ?? [],
+    threatRegister: previous?.threatRegister ?? [],
+    validatorMissions: previous?.validatorMissions ?? [],
+    evidencePackets: previous?.evidencePackets ?? [],
+    blockchainAnchorLedger: previous?.blockchainAnchorLedger ?? [],
+    unanchoredChanges: previous?.unanchoredChanges ?? false,
+    evidenceSummary: previous?.evidenceSummary ?? {
+      lastSatelliteReviewAt: 'Missing',
+      lastBiomassUpdateAt: 'Missing',
+      baselineBiomassTonsPerHa: 'Missing',
+      currentBiomassTonsPerHa: 'Missing',
+      biomassChangeTonsPerHa: 'Missing',
+      openThreatCount: 0,
+      validatorMissionCount: 0,
+      evidencePacketCount: 0,
+      anchoredVersionLabel: 'Missing',
+      verifierReadinessGaps: [],
+    },
   };
 
   base.interoperabilityContext.metadata = buildInteroperabilityMetadata(base, ctx, configs);
-  return base;
+  return ensureReportLedgers(base);
 }
 
 export function summarizeReportForVerifier(report: DmrvReport): string {
+  const s = report.evidenceSummary;
   const lines = [
     `DPAL Living dMRV Evidence Report — ${report.categoryLabel} / ${report.typeLabel}`,
     `Report ID: ${report.reportId} · Project: ${report.projectContext?.projectName || report.projectId}`,
     `Readiness: ${report.readinessScore.overall}% · Status: ${report.status}`,
+    `Last satellite review: ${s.lastSatelliteReviewAt}`,
+    `Baseline biomass: ${s.baselineBiomassTonsPerHa} · Current: ${s.currentBiomassTonsPerHa} · Change: ${s.biomassChangeTonsPerHa}`,
+    `Open threats: ${s.openThreatCount} · Validator missions: ${s.validatorMissionCount} · Evidence packets: ${s.evidencePacketCount}`,
+    `Anchored version: ${s.anchoredVersionLabel}`,
     `Report hash: ${report.anchorState.currentReportHash}`,
-    report.anchorState.hasUnanchoredChanges
+    report.unanchoredChanges || report.anchorState.hasUnanchoredChanges
       ? 'WARNING: This report has changes that have not yet been anchored.'
       : report.anchorState.lastAnchoredAt
         ? `Last anchored: ${report.anchorState.lastAnchoredAt}`
         : 'No blockchain anchor recorded yet.',
     `Sections: ${report.readinessScore.completedSections} complete, ${report.readinessScore.missingSections} missing, ${report.readinessScore.needsReviewSections} need review`,
     '',
+    'Verifier readiness gaps:',
+    ...(s.verifierReadinessGaps.length ? s.verifierReadinessGaps.map((g) => `- ${g}`) : ['- None flagged']),
+    '',
     'Missing sections:',
-    ...report.sections.filter((s) => s.status === 'missing').map((s) => `- ${s.title}`),
+    ...report.sections.filter((sec) => sec.status === 'missing').map((sec) => `- ${sec.title}`),
     '',
     'This is a dMRV evidence package draft — not a certified carbon credit issuance document.',
   ];

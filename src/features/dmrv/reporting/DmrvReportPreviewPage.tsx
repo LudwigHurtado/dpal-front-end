@@ -7,6 +7,7 @@ import { dmrvCategoryPath } from '../dmrvNavigation';
 import { DmrvReportDisclaimer } from './DmrvReportDisclaimer';
 import { useDmrvReport } from './useDmrvReport';
 import type { DmrvReport } from './dmrvReportTypes';
+import { DmrvReportPreviewEvidence } from './DmrvReportPreviewEvidence';
 import './dmrvReportPrint.css';
 
 const STATUS_CHIP: Record<string, string> = {
@@ -143,6 +144,36 @@ export default function DmrvReportPreviewPage(): React.ReactElement {
               </li>
             ))}
             <li>
+              <a href="#satellite-review-history" className="hover:underline">
+                Satellite review history
+              </a>
+            </li>
+            <li>
+              <a href="#biomass-timeline" className="hover:underline">
+                Biomass baseline vs current
+              </a>
+            </li>
+            <li>
+              <a href="#threat-register" className="hover:underline">
+                Threat register
+              </a>
+            </li>
+            <li>
+              <a href="#validator-missions" className="hover:underline">
+                Validator mission ledger
+              </a>
+            </li>
+            <li>
+              <a href="#blockchain-anchor-ledger" className="hover:underline">
+                Blockchain anchor ledger
+              </a>
+            </li>
+            <li>
+              <a href="#verifier-checklist" className="hover:underline">
+                Verifier review checklist
+              </a>
+            </li>
+            <li>
               <a href="#audit-trail" className="hover:underline">
                 Audit trail
               </a>
@@ -189,6 +220,8 @@ export default function DmrvReportPreviewPage(): React.ReactElement {
         </section>
 
         <StructuredContextSections report={report} />
+
+        <DmrvReportPreviewEvidence report={report} />
 
         <section className="mb-10 dmrv-report-section">
           <h2 className="text-lg font-black text-[#1e3a5f]">CMI readiness themes</h2>

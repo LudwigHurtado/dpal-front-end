@@ -4,6 +4,8 @@ interface ImportMetaEnv {
   readonly VITE_GEMINI_API_KEY?: string;
   /** When true, browser uses POST /api/ai/gemini with server GEMINI_API_KEY (no VITE_GEMINI_API_KEY needed). */
   readonly VITE_USE_SERVER_AI?: string;
+  /** Optional Gemini text model for DMRV helpers (default gemini-2.5-flash). */
+  readonly VITE_GEMINI_MODEL?: string;
   /** OpenAI — Politician Transparency Search refine + Evidence draft (optional). */
   readonly VITE_OPENAI_API_KEY?: string;
   /** Default: gpt-4o-mini */

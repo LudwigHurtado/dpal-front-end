@@ -150,3 +150,26 @@ export async function anchorReportVersion(
   if (remote?.ok) return { ok: true, data: report, persisted: 'remote' };
   return { ok: true, data: report, persisted: 'local' };
 }
+
+export {
+  appendSatelliteReviewToReport as appendSatelliteReview,
+  appendBiomassSnapshotToReport as appendBiomassSnapshot,
+  appendThreatToReport as appendThreat,
+  createValidatorMissionInReport as createValidatorMission,
+  appendEvidencePacketToReport,
+  appendBlockchainAnchorToReport as appendBlockchainAnchor,
+  recordSatelliteReviewFromConfig,
+  recordBiomassFromMethodologyCalc,
+} from './dmrvReportEngine';
+
+export function updateReport(
+  reportId: string,
+  _patch: Partial<DmrvReport>,
+  meta?: Partial<DmrvReportSyncMeta>,
+): DmrvReport {
+  return updateReportSection(reportId, 'report', {}, meta);
+}
+
+export function saveReportVersion(projectId: string, label: string, workflowStep: string): Promise<DmrvReport> {
+  return saveReportSnapshot(projectId, label, workflowStep);
+}
