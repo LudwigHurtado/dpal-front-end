@@ -322,6 +322,7 @@ export function DmrvLiveReportPanel({
               </div>
               <DmrvAiConfigHelper
                 variant="input"
+                compact
                 contextSummary={aiContext}
                 autofillPrompt="Analyze this living dMRV report. List missing sections and safe next steps. Do not invent data. Mark unknowns as Missing, Needs Review, or Not Yet Configured."
               />

@@ -8,6 +8,8 @@ export type VoiceInputButtonProps = {
   disabled?: boolean;
   label?: string;
   className?: string;
+  /** When false, hides the caption under the button (parent can show it once). */
+  showHint?: boolean;
 };
 
 /** Append spoken text to an existing chat input (space-separated). */
@@ -24,6 +26,7 @@ export function VoiceInputButton({
   disabled = false,
   label = 'Speak',
   className = '',
+  showHint = true,
 }: VoiceInputButtonProps): React.ReactElement {
   const {
     isSupported,
@@ -95,15 +98,15 @@ export function VoiceInputButton({
         </span>
       </button>
 
-      {!isSupported ? (
+      {showHint && !isSupported ? (
         <p className="mt-1 max-w-[14rem] text-[10px] leading-snug text-slate-500" role="status">
           {SPEECH_UNSUPPORTED_MESSAGE}
         </p>
-      ) : (
+      ) : showHint ? (
         <p className="mt-1 max-w-[14rem] text-[10px] leading-snug text-slate-500">
           Voice is converted to text only after you allow microphone access. Review the text before sending.
         </p>
-      )}
+      ) : null}
 
       {isListening && interimTranscript ? (
         <p className="mt-0.5 max-w-[14rem] truncate text-[10px] italic text-slate-600" aria-live="polite">
