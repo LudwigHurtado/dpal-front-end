@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Package, Shield } from '../../../components/icons';
 import { DmrvConnectorPanel } from './components/DmrvConnectorPanel';
-import { DmrvCategoryGallery } from './components/DmrvCategoryGallery';
+import { DmrvCategorySelectorDial } from './components/DmrvCategorySelectorDial';
 import { DmrvInfographicBoard } from './components/DmrvInfographicBoard';
 import { DmrvWorkflowPanel } from './components/DmrvWorkflowPanel';
 import { getCategoryBySlug, getConnector, type DmrvType } from './dmrvRegistry';
@@ -64,12 +64,13 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
       <div className="mx-auto w-full max-w-[min(100%,1520px)] px-4 py-6 sm:px-6 lg:px-8">
         <CategoryNav onReturn={onReturn} categoryTitle={category.title} />
 
-        <DmrvCategoryGallery
-          currentSlug={category.slug}
-          compact
-          title="Switch MRV category"
-          subtitle="Image cards open other DMRV domains — Carbon & Land, Water & Blue Carbon, Pollution, Biodiversity, and more."
-        />
+        <div className="mb-6 max-w-xs">
+          <DmrvCategorySelectorDial
+            currentSlug={category.slug}
+            projectId={projectId}
+            typeId={selectedTypeId ?? undefined}
+          />
+        </div>
 
         <DmrvInfographicBoard
           category={category}

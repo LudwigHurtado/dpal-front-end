@@ -166,7 +166,16 @@ const handleApiError = (error: any): never => {
 
   if (error?.message?.includes("Failed to fetch") || error?.message?.includes("NetworkError") || error?.name === "TypeError") {
     const apiBase = getApiBaseLocal();
-    throw new AiError("NETWORK_ERROR", `Backend API connection failed.\n\nBackend URL: ${apiBase || 'Not configured'}\n\nThis could be due to:\n1. Backend server is not running or not deployed\n2. Incorrect VITE_API_BASE environment variable\n3. CORS configuration issue on backend\n4. Internet connectivity problems\n\nPlease check:\n- Backend is deployed and running\n- VITE_API_BASE is set correctly in Vercel/Railway\n- Backend CORS allows your frontend origin`);
+    const pageOrigin =
+      typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+    const crossOriginHint =
+      pageOrigin && apiBase && !apiBase.startsWith(pageOrigin)
+        ? `\n\nLikely cause: the browser blocked a cross-origin request from ${pageOrigin} to ${apiBase}. Custom domains (e.g. dpal.info) must either use same-origin /api proxying or be listed in Railway CORS_ORIGINS / FRONTEND_ORIGIN.`
+        : "";
+    throw new AiError(
+      "NETWORK_ERROR",
+      `Backend API connection failed.\n\nBackend URL: ${apiBase || "Not configured"}${crossOriginHint}\n\nThis could be due to:\n1. Backend server is not running or not deployed\n2. Incorrect VITE_API_BASE environment variable\n3. CORS configuration issue on backend\n4. Internet connectivity problems\n\nPlease check:\n- Backend is deployed and running\n- VITE_API_BASE is set correctly in Vercel/Railway\n- Backend CORS allows your frontend origin`,
+    );
   }
 
   if (error?.status === 403 || error?.statusCode === 403 || error?.message?.includes("403") || error?.message?.includes("Forbidden")) {

@@ -5,7 +5,7 @@ import { DmrvAiConfigHelper } from './components/DmrvAiConfigHelper';
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
 import { getCategoryBySlug, getTypeForCategory } from './dmrvRegistry';
-import { dmrvCategoryPath, dmrvInputConfigPath } from './dmrvNavigation';
+import { dmrvCategoryPath, dmrvSourceStackPath } from './dmrvNavigation';
 import {
   anchorDmrvProjectIdentity,
   buildDefaultProjectContext,
@@ -154,7 +154,7 @@ export default function DmrvProjectConfigPage({
       typeTitle: dmrvType?.title ?? typeId,
       projectId: pid,
     });
-    navigate(dmrvInputConfigPath(pid, categorySlug, 'satellite-imagery', typeId));
+    navigate(dmrvSourceStackPath(pid, categorySlug, 'satellite', typeId));
   }, [category?.title, categorySlug, ctx?.projectId, dmrvType?.title, navigate, typeId]);
 
   const handleGenerateHash = useCallback(async () => {

@@ -218,6 +218,10 @@ export function getDmrvInputConfig(
   return map[storageKey(projectId, categorySlug, inputKey)] ?? null;
 }
 
+export function listDmrvInputConfigsForProject(projectId: string): DmrvInputConfig[] {
+  return Object.values(readAll()).filter((c) => c.projectId === projectId);
+}
+
 export function saveDmrvInputConfig(config: DmrvInputConfig): DmrvInputConfig {
   const map = readAll();
   const saved: DmrvInputConfig = {

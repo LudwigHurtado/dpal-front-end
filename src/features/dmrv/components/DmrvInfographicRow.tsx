@@ -24,6 +24,15 @@ export type DmrvInfographicRowProps = {
 };
 
 const SOURCE_PICKER_KEYS = new Set(['satellite-imagery', 'lidar']);
+const MAX_INPUT_CHIPS = 6;
+
+/** Satellite / LiDAR pickers are always shown; remaining slots fill other inputs. */
+function visibleInputDefs(all: DmrvInputDef[]): DmrvInputDef[] {
+  const pickers = all.filter((d) => SOURCE_PICKER_KEYS.has(d.key));
+  const rest = all.filter((d) => !SOURCE_PICKER_KEYS.has(d.key));
+  const maxRest = Math.max(0, MAX_INPUT_CHIPS - pickers.length);
+  return [...pickers, ...rest.slice(0, maxRest)];
+}
 
 export function DmrvInfographicRow({
   rowId,
@@ -35,7 +44,7 @@ export function DmrvInfographicRow({
   onConfigureInput,
   getInputSourceMeta,
 }: DmrvInfographicRowProps): React.ReactElement {
-  const inputDefs = type.inputDefs.length > 0 ? type.inputDefs.slice(0, 5) : [];
+  const inputDefs = type.inputDefs.length > 0 ? visibleInputDefs(type.inputDefs) : [];
 
   const rowSurface = `grid w-full grid-cols-1 gap-3 rounded-xl border p-3 transition xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(140px,180px)] xl:items-center xl:gap-4 ${
     active
@@ -74,7 +83,8 @@ export function DmrvInfographicRow({
             Inputs for evaluation
           </span>
 
-          <span className="flex flex-wrap justify-center gap-2.5 xl:justify-start">
+          <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pb-0.5 [scrollbar-width:thin]">
+            <span className="inline-flex min-w-min flex-nowrap justify-start gap-2.5">
             <InputConfigChip
               inputDef={{
                 key: 'project-config',
@@ -113,7 +123,8 @@ export function DmrvInfographicRow({
               accentColor={type.segmentColor}
               onConfigure={onConfigureInput}
             />
-          </span>
+            </span>
+          </div>
         </div>
 
         <div className="border-t border-slate-100 pt-3 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
@@ -175,7 +186,9 @@ function InputConfigChip({
         configured
           ? 'border-emerald-400/80 bg-gradient-to-b from-emerald-50 to-white hover:shadow-md hover:ring-2 hover:ring-emerald-500/20'
           : interactive
-            ? 'cursor-pointer border-slate-200/90 bg-gradient-to-b from-white to-slate-50 hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
+            ? isSourcePicker
+              ? 'cursor-pointer border-sky-400/70 bg-gradient-to-b from-sky-50 to-white hover:border-sky-500 hover:shadow-md hover:ring-2 hover:ring-sky-500/25'
+              : 'cursor-pointer border-slate-200/90 bg-gradient-to-b from-white to-slate-50 hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
             : 'cursor-not-allowed border-slate-200/90 bg-gradient-to-b from-white to-slate-50 opacity-55 grayscale-[0.35]'
       }`}
       style={{ borderColor: configured ? undefined : `${accentColor}40` }}

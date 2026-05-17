@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { createContext, useContext, useId } from 'react';
 
 export type DmrvInputSymbolKey =
   | 'satellite'
@@ -54,11 +54,12 @@ export type DmrvInputSymbolKey =
   | 'qr'
   | 'default';
 
-const GRAD_ID = 'dmrv-sym';
+const GradIdContext = createContext('dmrv-sym');
 
 type SymProps = { size?: number; className?: string };
 
 function Sym({ size = 40, className, children }: SymProps & { children: React.ReactNode }): React.ReactElement {
+  const gradId = useContext(GradIdContext);
   return (
     <svg
       width={size}
@@ -69,16 +70,16 @@ function Sym({ size = 40, className, children }: SymProps & { children: React.Re
       role="presentation"
     >
       <defs>
-        <linearGradient id={`${GRAD_ID}-sky`} x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient id={`${gradId}-sky`} x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#dbeafe" />
           <stop offset="100%" stopColor="#93c5fd" />
         </linearGradient>
-        <linearGradient id={`${GRAD_ID}-earth`} x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={`${gradId}-earth`} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#34d399" />
           <stop offset="50%" stopColor="#059669" />
           <stop offset="100%" stopColor="#1e40af" />
         </linearGradient>
-        <radialGradient id={`${GRAD_ID}-glow`} cx="50%" cy="35%" r="55%">
+        <radialGradient id={`${gradId}-glow`} cx="50%" cy="35%" r="55%">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.9" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
         </radialGradient>
@@ -89,10 +90,11 @@ function Sym({ size = 40, className, children }: SymProps & { children: React.Re
 }
 
 function SatelliteSymbol({ size, className }: SymProps): React.ReactElement {
+  const gradId = useContext(GradIdContext);
   return (
     <Sym size={size} className={className}>
-      <rect width="48" height="48" rx="8" fill={`url(#${GRAD_ID}-sky)`} />
-      <circle cx="24" cy="30" r="11" fill={`url(#${GRAD_ID}-earth)`} />
+      <rect width="48" height="48" rx="8" fill={`url(#${gradId}-sky)`} />
+      <circle cx="24" cy="30" r="11" fill={`url(#${gradId}-earth)`} />
       <ellipse cx="20" cy="26" rx="4" ry="2.5" fill="#86efac" opacity="0.85" />
       <path
         d="M8 14h32l-4 8H12l-4-8z"
@@ -546,19 +548,22 @@ export function DmrvInputSymbol({
   accentColor,
   className,
 }: DmrvInputSymbolProps): React.ReactElement {
+  const gradId = useId().replace(/:/g, '');
   const key = resolveInputSymbolKey(label);
   const Symbol = SYMBOL_MAP[key] ?? DefaultSymbol;
   return (
-    <span
-      className={`inline-flex shrink-0 overflow-hidden rounded-lg shadow-sm ring-1 ring-slate-200/90 ${className ?? ''}`}
-      style={
-        accentColor
-          ? { boxShadow: `0 2px 8px ${accentColor}33`, borderColor: `${accentColor}55` }
-          : undefined
-      }
-      title={label}
-    >
-      <Symbol size={size} />
-    </span>
+    <GradIdContext.Provider value={gradId}>
+      <span
+        className={`inline-flex shrink-0 overflow-hidden rounded-lg shadow-sm ring-1 ring-slate-200/90 ${className ?? ''}`}
+        style={
+          accentColor
+            ? { boxShadow: `0 2px 8px ${accentColor}33`, borderColor: `${accentColor}55` }
+            : undefined
+        }
+        title={label}
+      >
+        <Symbol size={size} />
+      </span>
+    </GradIdContext.Provider>
   );
 }

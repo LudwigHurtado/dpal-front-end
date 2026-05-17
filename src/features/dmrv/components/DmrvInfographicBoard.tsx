@@ -1,13 +1,14 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck } from '../../../../components/icons';
 import { getSensorSourceById } from '../dmrvSensorCatalog';
-import type { DmrvSourceConfiguratorKind } from '../dmrvSensorCatalog';
 import type { DmrvCategory, DmrvInputDef, DmrvType } from '../dmrvRegistry';
 import {
   dmrvInputConfigPath,
   dmrvNewProjectPath,
   dmrvProjectConfigPath,
+  dmrvSourceStackPath,
+  inputKeyToSourceStackKind,
 } from '../dmrvNavigation';
 import { DMRV_FOOTER_TAGLINES } from '../dmrvInfographicTheme';
 import {
@@ -15,21 +16,11 @@ import {
   ensureDmrvProjectContext,
   getDmrvProjectContext,
 } from '../services/dmrvProjectContextService';
-import {
-  getSelectedSourceIds,
-  saveSelectedSourceIds,
-} from '../services/dmrvSourceSelectionService';
+import { getSelectedSourceIds } from '../services/dmrvSourceSelectionService';
 import { DmrvBlockchainSymbol } from './DmrvBlockchainSymbol';
 import { DmrvInfographicRow, type DmrvInputSourceMeta } from './DmrvInfographicRow';
 import { DmrvSelectorDial } from './DmrvSelectorDial';
-import { DmrvSourceConfigurator } from './DmrvSourceConfigurator';
 import { DmrvWorkflowProgress } from './DmrvWorkflowProgress';
-
-type SourceConfiguratorState = {
-  typeId: string;
-  typeName: string;
-  sourceKind: DmrvSourceConfiguratorKind;
-} | null;
 
 export type DmrvInfographicBoardProps = {
   category: DmrvCategory;
@@ -53,9 +44,6 @@ export function DmrvInfographicBoard({
 }: DmrvInfographicBoardProps): React.ReactElement {
   const navigate = useNavigate();
   const footerTagline = DMRV_FOOTER_TAGLINES[category.slug] ?? 'environmental intelligence';
-  const [sourceConfigurator, setSourceConfigurator] = useState<SourceConfiguratorState>(null);
-  const [selectionRevision, setSelectionRevision] = useState(0);
-
   const projectCtx = useMemo(
     () => (projectId ? getDmrvProjectContext(projectId) : null),
     [projectId],
@@ -69,9 +57,7 @@ export function DmrvInfographicBoard({
 
   const getInputSourceMeta = useCallback(
     (typeId: string, inputKey: string): DmrvInputSourceMeta | undefined => {
-      void selectionRevision;
-      const kind: DmrvSourceConfiguratorKind | null =
-        inputKey === 'satellite-imagery' ? 'satellite' : inputKey === 'lidar' ? 'lidar' : null;
+      const kind = inputKeyToSourceStackKind(inputKey);
       if (!kind) return undefined;
       const pid = resolveProjectId(typeId);
       const ids = getSelectedSourceIds(pid, typeId, kind);
@@ -85,7 +71,7 @@ export function DmrvInfographicBoard({
         chips,
       };
     },
-    [resolveProjectId, selectionRevision],
+    [resolveProjectId],
   );
 
   const handleOpenProject = useCallback(
@@ -111,36 +97,15 @@ export function DmrvInfographicBoard({
         projectId: pid,
       });
 
-      if (inputDef.key === 'satellite-imagery') {
-        setSourceConfigurator({
-          typeId,
-          typeName: type?.title ?? typeId,
-          sourceKind: 'satellite',
-        });
-        return;
-      }
-      if (inputDef.key === 'lidar') {
-        setSourceConfigurator({
-          typeId,
-          typeName: type?.title ?? typeId,
-          sourceKind: 'lidar',
-        });
+      const sourceKind = inputKeyToSourceStackKind(inputDef.key);
+      if (sourceKind) {
+        navigate(dmrvSourceStackPath(pid, category.slug, sourceKind, typeId));
         return;
       }
 
       navigate(dmrvInputConfigPath(pid, category.slug, inputDef.key, typeId));
     },
     [category.slug, category.title, navigate, resolveProjectId, types],
-  );
-
-  const handleSaveSources = useCallback(
-    (ids: string[]) => {
-      if (!sourceConfigurator) return;
-      const pid = resolveProjectId(sourceConfigurator.typeId);
-      saveSelectedSourceIds(pid, sourceConfigurator.typeId, sourceConfigurator.sourceKind, ids);
-      setSelectionRevision((n) => n + 1);
-    },
-    [resolveProjectId, sourceConfigurator],
   );
 
   const handleSelectType = useCallback(
@@ -229,23 +194,6 @@ export function DmrvInfographicBoard({
           </ul>
         </section>
       </div>
-
-      {sourceConfigurator ? (
-        <DmrvSourceConfigurator
-          dmrvTypeId={sourceConfigurator.typeId}
-          dmrvTypeName={sourceConfigurator.typeName}
-          sourceKind={sourceConfigurator.sourceKind}
-          projectId={resolveProjectId(sourceConfigurator.typeId)}
-          isOpen
-          onClose={() => setSourceConfigurator(null)}
-          onSaveSelectedSources={handleSaveSources}
-          initialSelectedIds={getSelectedSourceIds(
-            resolveProjectId(sourceConfigurator.typeId),
-            sourceConfigurator.typeId,
-            sourceConfigurator.sourceKind,
-          )}
-        />
-      ) : null}
 
       <footer className="flex items-center justify-center gap-3 rounded-2xl border border-[#1e3a5f]/25 bg-[#e8f0f7] px-5 py-4 text-center">
         <DmrvBlockchainSymbol size={40} accentColor={category.color} className="shrink-0 rounded-lg overflow-hidden shadow-sm" />

@@ -4,6 +4,7 @@ import DmrvCategoryPage from './DmrvCategoryPage';
 import DmrvHubPage from './DmrvHubPage';
 import DmrvInputConfigPage from './DmrvInputConfigPage';
 import DmrvProjectConfigPage from './DmrvProjectConfigPage';
+import DmrvSourceConfiguratorPage from './DmrvSourceConfiguratorPage';
 import { getCategoryBySlug } from './dmrvRegistry';
 import { resolveDmrvInputDef } from './dmrvInputRegistry';
 import { dmrvInputConfigPath } from './dmrvNavigation';
@@ -63,6 +64,10 @@ function DmrvProjectConfigGuard(props: DmrvRoutesProps): React.ReactElement {
   return <DmrvProjectConfigPage {...props} />;
 }
 
+function DmrvSourceStackGuard(props: DmrvRoutesProps): React.ReactElement {
+  return <DmrvSourceConfiguratorPage {...props} />;
+}
+
 export default function DmrvRoutes({ onReturn, onNavigate }: DmrvRoutesProps): React.ReactElement {
   return (
     <Routes>
@@ -76,6 +81,10 @@ export default function DmrvRoutes({ onReturn, onNavigate }: DmrvRoutesProps): R
         <Route
           path="projects/:projectId/:categorySlug/config/:inputKey"
           element={<DmrvInputConfigGuard onReturn={onReturn} onNavigate={onNavigate} />}
+        />
+        <Route
+          path="projects/:projectId/:categorySlug/sources/:sourceKind"
+          element={<DmrvSourceStackGuard onReturn={onReturn} />}
         />
         <Route path=":categorySlug/config/:inputKey" element={<DmrvLegacyInputRedirect />} />
         <Route

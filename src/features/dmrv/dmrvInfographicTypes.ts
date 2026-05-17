@@ -37,7 +37,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Agriculture',
       'Agriculture DMRV',
       'Tracks soil carbon, crop management, fertilizer impacts, and methane or nitrous oxide signals.',
-      ['Soil Samples', 'IoT Sensors', 'Management Data', 'Weather Data', 'Activity Data'],
+      ['Satellite', 'Soil Samples', 'IoT Sensors', 'Management Data', 'Weather Data'],
       ['Soil organic carbon', 'N₂O / CH₄ emissions', 'Fertilizer impacts', 'Practice verification'],
     ),
     row(

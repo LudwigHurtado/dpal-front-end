@@ -5,7 +5,6 @@ export const DMRV_RECOMMENDED_SOURCES: Record<string, string[]> = {
     'sentinel-2-msi',
     'landsat-8-9',
     'sentinel-1-sar',
-    'gedi-lidar',
     'esa-biomass',
     'nisar',
     'ecostress',

@@ -6,6 +6,8 @@ import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvDataSourceFields } from './components/dmrvInputConfigFields';
 import { DmrvSatellitePicker } from './components/DmrvSatellitePicker';
 import { SceneLivePreviewCard } from './components/SceneLivePreviewCard';
+import { DeepMethodologyCounsel } from './components/DeepMethodologyCounsel';
+import { DmrvMethodologyPresetPanel } from './components/DmrvMethodologyPresetPanel';
 import { DmrvSectionAiStrip } from './components/DmrvSectionAiStrip';
 import { runSceneSteppedAutofill } from './utils/sceneAutofillSteps';
 import { DMRV_SATELLITE_SETTINGS_KEY } from './dmrvSatelliteCatalog';
@@ -21,12 +23,19 @@ import {
   computeCompletenessScore,
   generateDmrvEvidencePacket,
   getDmrvInputConfig,
+  listDmrvInputConfigsForProject,
   projectContextSnapshot,
   saveDmrvInputConfig,
   testDmrvInputSource,
 } from './services/dmrvInputConfigService';
 import { ensureDmrvProjectContext } from './services/dmrvProjectContextService';
+import {
+  getMethodologyPresetById,
+  type DmrvMethodologyPreset,
+  type MethodologyApplicationTrace,
+} from './dmrvMethodologyPresets';
 import type { DmrvConfigStatus, DmrvInputConfig } from './services/dmrvInputConfigTypes';
+import type { DmrvDataSourceSettings, DmrvValidationRules } from './services/dmrvInputConfigTypes';
 
 export type DmrvInputConfigPageProps = {
   onReturn?: () => void;
@@ -84,6 +93,7 @@ export default function DmrvInputConfigPage({
   const [notice, setNotice] = useState<string | null>(null);
   const [scenePreviewUpdating, setScenePreviewUpdating] = useState(false);
   const [sceneAutofillStatus, setSceneAutofillStatus] = useState<string | null>(null);
+  const [methodologyTrace, setMethodologyTrace] = useState<MethodologyApplicationTrace | null>(null);
 
   useEffect(() => {
     if (!categorySlug || !inputKey || !projectId) return;
@@ -106,6 +116,59 @@ export default function DmrvInputConfigPage({
   const aiHelperVariant: DmrvAiHelperVariant =
     inputKey === 'satellite-imagery' ? 'satellite-imagery' : 'input';
 
+  const methodologyRecommendContext = useMemo(() => {
+    if (!projectId) {
+      return { selectedSources: [] as string[], hasFieldPlots: false, projectContext: '' };
+    }
+    const siblingConfigs = listDmrvInputConfigsForProject(projectId);
+    const sources: string[] = [];
+    let hasFieldPlots = false;
+    for (const c of siblingConfigs) {
+      if (c.inputKey === 'field-plots' || c.configType === 'field-plots') hasFieldPlots = true;
+      if (c.inputKey === 'satellite-imagery') sources.push('Satellite Imagery');
+      if (c.inputKey === 'lidar') sources.push('LiDAR');
+      if (c.inputKey === 'biomass-data') sources.push('Biomass Data');
+      if (c.inputKey === 'activity-data') sources.push('Activity Data');
+      if (c.inputKey === 'soil-samples') sources.push('Soil Samples');
+    }
+    const ctxParts = [
+      storedProject?.projectName,
+      storedProject?.methodology?.name,
+      storedProject?.methodology?.standardFramework,
+      storedProject?.methodology?.domain,
+      config?.projectContext.methodology,
+    ].filter(Boolean);
+    return {
+      selectedSources: sources,
+      hasFieldPlots,
+      projectContext: ctxParts.join(' '),
+    };
+  }, [config?.projectContext.methodology, projectId, storedProject]);
+
+  const handleApplyMethodologyPreset = useCallback(
+    (
+      preset: DmrvMethodologyPreset,
+      dataSourcePatch: DmrvDataSourceSettings,
+      validationRules: DmrvValidationRules,
+    ) => {
+      setConfig((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          dataSourceSettings: { ...prev.dataSourceSettings, ...dataSourcePatch },
+          validationRules: { ...validationRules },
+          projectContext: {
+            ...prev.projectContext,
+            methodology: preset.shortName,
+          },
+          status: prev.status === 'not_configured' ? 'draft' : prev.status,
+        };
+      });
+      setNotice(`Applied "${preset.shortName}" — fields and evidence rules updated for verifier review.`);
+    },
+    [],
+  );
+
   const aiContextSummary = useMemo(() => {
     if (!config) return '';
     return JSON.stringify(
@@ -121,13 +184,19 @@ export default function DmrvInputConfigPage({
         validationRules: config.validationRules,
         evidencePacket: config.evidencePacket,
         projectContext: config.projectContext,
+        methodologyTrace: methodologyTrace ?? undefined,
       },
       null,
       2,
     );
-  }, [categorySlug, config, inputDef.label, inputKey, integrityScore, typeId]);
+  }, [categorySlug, config, inputDef.label, inputKey, integrityScore, methodologyTrace, typeId]);
 
   const typeTitle = dmrvType?.title ?? typeId;
+
+  const appliedMethodologyPreset = useMemo(() => {
+    const id = String(config?.dataSourceSettings.methodologyPresetId ?? '');
+    return id ? getMethodologyPresetById(id) : undefined;
+  }, [config?.dataSourceSettings.methodologyPresetId]);
 
   const satellitePickContext = useMemo(() => {
     if (!config) return '';
@@ -472,6 +541,35 @@ export default function DmrvInputConfigPage({
                   onApply={applySatellitePick}
                 />
               </Panel>
+            ) : null}
+
+            {config.configType === 'biomass' ? (
+              <Panel title="Methodology Preset">
+                <DmrvMethodologyPresetPanel
+                  config={config}
+                  typeId={typeId}
+                  typeTitle={typeTitle}
+                  recommendContext={methodologyRecommendContext}
+                  onApplyPreset={handleApplyMethodologyPreset}
+                  onTraceCreated={setMethodologyTrace}
+                  disabled={!!busy}
+                />
+              </Panel>
+            ) : null}
+
+            {config.configType === 'biomass' ? (
+              <DeepMethodologyCounsel
+                projectId={projectId}
+                dmrvTypeId={typeId}
+                dmrvTypeName={typeTitle}
+                selectedMethodologyId={String(config.dataSourceSettings.methodologyPresetId ?? '')}
+                methodologyPreset={appliedMethodologyPreset}
+                selectedSources={methodologyRecommendContext.selectedSources}
+                formState={config.dataSourceSettings as Record<string, unknown>}
+                evidenceRules={config.validationRules}
+                blockchainAnchored={config.blockchain.status === 'anchored'}
+                disabled={!!busy}
+              />
             ) : null}
 
             <Panel title={config.configType === 'satellite' ? 'Scene & coverage settings' : 'Data Source Settings'}>

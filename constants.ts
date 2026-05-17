@@ -16,7 +16,12 @@ export const isApiBaseConfigured = (): boolean => {
 };
 
 export const getApiBase = (): string => {
-  return getDpalApiConfig().apiBaseUrl;
+  const base = getDpalApiConfig().apiBaseUrl;
+  if (base) return base;
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  return getDpalApiConfig().apiBaseUrl || 'https://web-production-a27b.up.railway.app';
 };
 
 /** Build full URL for an API route so all requests go to the same Railway backend. */

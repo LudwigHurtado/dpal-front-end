@@ -19,7 +19,31 @@ function normalizeBase(value: unknown): string {
 
 function isFrontendHost(host: string): boolean {
   const h = host.toLowerCase();
-  return h.includes('dpal-front-end.vercel.app') || h.includes('vercel.app');
+  return (
+    h.includes('dpal-front-end.vercel.app') ||
+    h.includes('vercel.app') ||
+    h === 'dpal.info' ||
+    h === 'www.dpal.info'
+  );
+}
+
+/**
+ * When the SPA is served from a host that rewrites `/api/*` to Railway (see `vercel.json`),
+ * use same-origin relative paths so the browser never hits cross-origin CORS on custom domains
+ * like `dpal.info` that are not listed in Railway `CORS_ORIGINS`.
+ */
+function shouldUseSameOriginApiProxy(apiBase: string, frontendOrigin: string): boolean {
+  if (!apiBase || !frontendOrigin || typeof window === 'undefined') return false;
+  try {
+    const fe = new URL(frontendOrigin);
+    const api = new URL(apiBase);
+    if (fe.hostname === api.hostname) return false;
+    const isLocalDev = fe.hostname === 'localhost' || fe.hostname === '127.0.0.1';
+    if (isLocalDev) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export type DpalApiConfig = {
@@ -79,13 +103,16 @@ export function getDpalApiConfig(): DpalApiConfig {
 
   const publicFrontendBaseUrl =
     normalizeBase(e.VITE_DPAL_PUBLIC_FRONTEND_URL) || frontendOrigin || 'https://dpal-front-end.vercel.app';
-  const mediaBaseUrl = normalizeBase(e.VITE_DPAL_MEDIA_BASE_URL) || apiBase;
+  const resolvedApiBase = shouldUseSameOriginApiProxy(apiBase, frontendOrigin) ? '' : apiBase;
+  const mediaBaseUrl =
+    normalizeBase(e.VITE_DPAL_MEDIA_BASE_URL) ||
+    (resolvedApiBase === '' ? '' : apiBase);
 
   return {
     frontendOrigin,
     publicFrontendBaseUrl,
-    apiBaseUrl: apiBase,
-    aiServerUrl: fromAi || apiBase,
+    apiBaseUrl: resolvedApiBase,
+    aiServerUrl: fromAi || resolvedApiBase || apiBase,
     mediaBaseUrl,
     source,
     hasExplicitApiConfig: Boolean(fromOverride || fromNew || fromAi || fromLegacy),

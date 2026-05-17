@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft } from '../../../components/icons';
 import { DmrvCategoryGallery } from './components/DmrvCategoryGallery';
+import { DmrvCategorySelectorDial } from './components/DmrvCategorySelectorDial';
 import { DMRV_HUB_SUBTITLE } from './dmrvRegistry';
 
 export type DmrvHubPageProps = {
@@ -37,9 +38,17 @@ export default function DmrvHubPage({ onReturn }: DmrvHubPageProps): React.React
           subtitle="Select a category to open its DMRV types, evidence inputs, and configuration workflow."
         />
 
+        <div className="mx-auto mt-10 max-w-md">
+          <p className="mb-3 text-center text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+            Quick selector
+          </p>
+          <DmrvCategorySelectorDial />
+        </div>
+
         <footer className="mt-10 rounded-xl border border-slate-200 bg-white px-5 py-4 text-center text-[11px] text-slate-600">
-          Images are visual entry points only — all labels and actions are live HTML controls. DMRV configuration does
-          not imply certified credits, automatic verification, or regulatory approval.
+          Images are visual entry points only — all labels and actions are live HTML controls. Turn the dial or pick a
+          legend item to open a full DMRV category workspace. Configuration does not imply certified credits, automatic
+          verification, or regulatory approval.
         </footer>
       </div>
     </div>

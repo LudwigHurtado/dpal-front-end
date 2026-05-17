@@ -1,0 +1,158 @@
+import React, { useCallback, useMemo } from 'react';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft } from '../../../components/icons';
+import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
+import { DmrvSourceConfigurator } from './components/DmrvSourceConfigurator';
+import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
+import { getCategoryBySlug, getTypeForCategory } from './dmrvRegistry';
+import {
+  dmrvCategoryPath,
+  dmrvInputConfigPath,
+  sourceStackKindToInputKey,
+  type DmrvSourceStackKind,
+} from './dmrvNavigation';
+import {
+  defaultDmrvProjectId,
+  ensureDmrvProjectContext,
+} from './services/dmrvProjectContextService';
+import {
+  getSelectedSourceIds,
+  saveSelectedSourceIds,
+} from './services/dmrvSourceSelectionService';
+
+const VALID_KINDS = new Set<DmrvSourceStackKind>(['satellite', 'lidar']);
+
+function parseSourceKind(raw: string | undefined): DmrvSourceStackKind | null {
+  if (raw === 'satellite' || raw === 'lidar') return raw;
+  return null;
+}
+
+export type DmrvSourceConfiguratorPageProps = {
+  onReturn?: () => void;
+};
+
+export default function DmrvSourceConfiguratorPage({
+  onReturn,
+}: DmrvSourceConfiguratorPageProps): React.ReactElement {
+  const { projectId = '', categorySlug = '', sourceKind: sourceKindParam = '' } = useParams<{
+    projectId: string;
+    categorySlug: string;
+    sourceKind: string;
+  }>();
+  const [searchParams] = useSearchParams();
+  const typeId = searchParams.get('typeId') ?? 'forest-land-use';
+  const navigate = useNavigate();
+
+  const sourceKind = parseSourceKind(sourceKindParam);
+  const category = getCategoryBySlug(categorySlug);
+  const dmrvType = getTypeForCategory(categorySlug, typeId);
+
+  const backPath = useMemo(
+    () => dmrvCategoryPath(categorySlug, typeId, projectId),
+    [categorySlug, projectId, typeId],
+  );
+
+  const handleBack = useCallback(() => {
+    navigate(backPath);
+  }, [backPath, navigate]);
+
+  const handleSave = useCallback(
+    (ids: string[]) => {
+      if (!sourceKind) return;
+      saveSelectedSourceIds(projectId, typeId, sourceKind, ids);
+      navigate(backPath);
+    },
+    [backPath, navigate, projectId, sourceKind, typeId],
+  );
+
+  if (!sourceKind || !VALID_KINDS.has(sourceKind) || !category) {
+    return <Navigate to="/dmrv" replace />;
+  }
+
+  if (!projectId) {
+    const pid = defaultDmrvProjectId(categorySlug, typeId);
+    return (
+      <Navigate
+        to={`/dmrv/projects/${encodeURIComponent(pid)}/${encodeURIComponent(categorySlug)}/sources/${sourceKind}?typeId=${encodeURIComponent(typeId)}`}
+        replace
+      />
+    );
+  }
+
+  ensureDmrvProjectContext({
+    categorySlug,
+    categoryTitle: category.title,
+    typeId,
+    typeTitle: dmrvType?.title ?? typeId,
+    projectId,
+  });
+
+  const inputKey = sourceStackKindToInputKey(sourceKind);
+  const sceneConfigPath = dmrvInputConfigPath(projectId, categorySlug, inputKey, typeId);
+  const initialSelectedIds = getSelectedSourceIds(projectId, typeId, sourceKind);
+  const typeTitle = dmrvType?.title ?? typeId;
+
+  return (
+    <div className="min-h-screen bg-[#f4f6f9] text-slate-900">
+      <div className="mx-auto w-full max-w-[min(100%,1520px)] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to {category.title}
+          </button>
+          <Link
+            to="/dmrv"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+          >
+            All MRV categories
+          </Link>
+          {onReturn ? (
+            <button
+              type="button"
+              onClick={onReturn}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+            >
+              Main menu
+            </button>
+          ) : null}
+        </div>
+
+        <DmrvBreadcrumb
+          crumbs={[
+            { label: 'DMRV', onClick: () => navigate('/dmrv') },
+            { label: category.title, onClick: handleBack },
+            { label: typeTitle, onClick: handleBack },
+            {
+              label: sourceKind === 'lidar' ? 'LiDAR sources' : 'Satellite sources',
+            },
+          ]}
+        />
+
+        <DmrvWorkflowProgress activeStep={2} />
+
+        <p className="mb-4 text-xs text-slate-600">
+          Full-page source stack — pick missions and sensors for evidence search. For scene dates, cloud limits, and live
+          preview, open{' '}
+          <Link to={sceneConfigPath} className="font-semibold text-[#1e3a5f] underline">
+            {sourceKind === 'lidar' ? 'LiDAR' : 'satellite'} scene settings
+          </Link>
+          .
+        </p>
+
+        <DmrvSourceConfigurator
+          dmrvTypeId={typeId}
+          dmrvTypeName={typeTitle}
+          sourceKind={sourceKind}
+          projectId={projectId}
+          onClose={handleBack}
+          onSaveSelectedSources={handleSave}
+          initialSelectedIds={initialSelectedIds}
+        />
+      </div>
+    </div>
+  );
+}

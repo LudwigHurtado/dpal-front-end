@@ -1,5 +1,30 @@
 import { getValidatorPortalUrl } from '../../../constants';
 import type { DmrvConnectorMeta } from './dmrvRegistry';
+import type { DmrvSourceConfiguratorKind } from './dmrvSensorCatalog';
+
+export type DmrvSourceStackKind = Extract<DmrvSourceConfiguratorKind, 'satellite' | 'lidar'>;
+
+export function inputKeyToSourceStackKind(inputKey: string): DmrvSourceStackKind | null {
+  if (inputKey === 'satellite-imagery') return 'satellite';
+  if (inputKey === 'lidar') return 'lidar';
+  return null;
+}
+
+export function sourceStackKindToInputKey(kind: DmrvSourceStackKind): string {
+  return kind === 'lidar' ? 'lidar' : 'satellite-imagery';
+}
+
+/** Full-page satellite / LiDAR source stack picker (replaces modal configurator). */
+export function dmrvSourceStackPath(
+  projectId: string,
+  categorySlug: string,
+  sourceKind: DmrvSourceStackKind,
+  typeId?: string,
+): string {
+  const base = `/dmrv/projects/${encodeURIComponent(projectId)}/${encodeURIComponent(categorySlug)}/sources/${encodeURIComponent(sourceKind)}`;
+  if (!typeId) return base;
+  return `${base}?typeId=${encodeURIComponent(typeId)}`;
+}
 
 export function dmrvCategoryPath(
   categorySlug: string,
