@@ -158,7 +158,13 @@ export function DmrvInfographicBoard({
         )}
       </p>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)]">
+      <div
+        className={`grid grid-cols-1 gap-4 ${
+          selectedTypeId
+            ? 'lg:grid-cols-[minmax(200px,240px)_minmax(0,1fr)] xl:grid-cols-[minmax(180px,220px)_minmax(0,1fr)]'
+            : 'lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)]'
+        }`}
+      >
         <DmrvSelectorDial
           category={category}
           types={types}
@@ -173,7 +179,7 @@ export function DmrvInfographicBoard({
             </p>
             <span className="flex-1 border-t border-dashed border-slate-300" aria-hidden />
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
-              Inputs for evaluation (examples)
+              Inputs for evaluation
             </p>
           </div>
 

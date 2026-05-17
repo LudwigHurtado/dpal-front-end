@@ -24,6 +24,8 @@ export type DmrvInputDef = {
   requiredForIntegrity: boolean;
   blockchainAnchorRequired: boolean;
   validationRole: string;
+  /** Row-level actions that are not yet wired to a live workspace */
+  availability?: 'available' | 'coming-soon';
 };
 
 const INPUT_CATALOG: Record<string, DmrvInputDef> = {
@@ -144,7 +146,55 @@ const INPUT_CATALOG: Record<string, DmrvInputDef> = {
     blockchainAnchorRequired: true,
     validationRole: 'Integrity timestamp',
   },
+  methodology: {
+    key: 'methodology',
+    label: 'Methodology',
+    shortDescription: 'Methodology preset, calculation chain, and verifier-facing assumptions.',
+    configType: 'generic',
+    requiredForIntegrity: true,
+    blockchainAnchorRequired: false,
+    validationRole: 'Methodology framework',
+    availability: 'available',
+  },
+  'validation-rules': {
+    key: 'validation-rules',
+    label: 'Validation Rules',
+    shortDescription: 'Thresholds, QA/QC checks, and validator escalation rules for this pathway.',
+    configType: 'generic',
+    requiredForIntegrity: true,
+    blockchainAnchorRequired: false,
+    validationRole: 'Validation policy',
+    availability: 'coming-soon',
+  },
+  'evidence-packet': {
+    key: 'evidence-packet',
+    label: 'Evidence Packet',
+    shortDescription: 'Assemble exhibits, maps, and declarations for review or handoff.',
+    configType: 'generic',
+    requiredForIntegrity: true,
+    blockchainAnchorRequired: true,
+    validationRole: 'Evidence assembly',
+    availability: 'coming-soon',
+  },
+  'ai-voice-helper': {
+    key: 'ai-voice-helper',
+    label: 'AI Helper',
+    shortDescription: 'Voice and text guidance for configuring this DMRV type safely.',
+    configType: 'generic',
+    requiredForIntegrity: false,
+    blockchainAnchorRequired: false,
+    validationRole: 'Configuration assistant',
+    availability: 'coming-soon',
+  },
 };
+
+/** Extra row actions shown when a DMRV type row is expanded (after type-specific inputs). */
+export const DMRV_EXPANDED_WORKFLOW_INPUTS: DmrvInputDef[] = [
+  INPUT_CATALOG.methodology,
+  INPUT_CATALOG['validation-rules'],
+  INPUT_CATALOG['evidence-packet'],
+  INPUT_CATALOG['ai-voice-helper'],
+];
 
 /** Convert display label → stable slug key. */
 export function labelToInputKey(label: string): string {
@@ -238,6 +288,10 @@ const CONFIGURE_HINTS: Record<string, string> = {
   'fire-data': 'Configure fire screening and burn-scar sources.',
   'grazing-data': 'Configure grazing records and stocking rates.',
   'blockchain-log': 'Anchor project and evidence configuration to the DPAL ledger.',
+  methodology: 'Open project workspace to set methodology preset and reporting assumptions.',
+  'validation-rules': 'Validation rules workspace — coming soon.',
+  'evidence-packet': 'Evidence packet builder — coming soon.',
+  'ai-voice-helper': 'AI configuration helper — coming soon.',
 };
 
 export function getInputConfigureHint(inputKey: string): string {

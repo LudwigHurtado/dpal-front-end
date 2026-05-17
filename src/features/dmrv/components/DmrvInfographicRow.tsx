@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ChevronRight, Lock } from '../../../../components/icons';
 import type { DmrvInputDef } from '../dmrvRegistry';
 import type { DmrvType } from '../dmrvRegistry';
-import { getInputConfigureHint } from '../dmrvInputRegistry';
+import { DMRV_EXPANDED_WORKFLOW_INPUTS, getInputConfigureHint } from '../dmrvInputRegistry';
 import { DmrvInputSymbol } from './dmrvInputSymbols';
 import { DmrvTypeSymbol } from './dmrvTypeSymbols';
 
@@ -24,14 +24,49 @@ export type DmrvInfographicRowProps = {
 };
 
 const SOURCE_PICKER_KEYS = new Set(['satellite-imagery', 'lidar']);
-const MAX_INPUT_CHIPS = 6;
+const COLLAPSED_PREVIEW_COUNT = 2;
 
-/** Satellite / LiDAR pickers are always shown; remaining slots fill other inputs. */
-function visibleInputDefs(all: DmrvInputDef[]): DmrvInputDef[] {
-  const pickers = all.filter((d) => SOURCE_PICKER_KEYS.has(d.key));
-  const rest = all.filter((d) => !SOURCE_PICKER_KEYS.has(d.key));
-  const maxRest = Math.max(0, MAX_INPUT_CHIPS - pickers.length);
-  return [...pickers, ...rest.slice(0, maxRest)];
+const PROJECT_CONFIG_DEF: DmrvInputDef = {
+  key: 'project-config',
+  label: 'Project Config',
+  shortDescription: 'Optional — project identity, AOI, methodology, and reporting period.',
+  configType: 'generic',
+  requiredForIntegrity: false,
+  blockchainAnchorRequired: false,
+  validationRole: 'Project context',
+};
+
+const BLOCKCHAIN_LOG_DEF: DmrvInputDef = {
+  key: 'blockchain-log',
+  label: 'Blockchain Anchor',
+  shortDescription: 'Evidence hash, ledger record, and public verification link.',
+  configType: 'blockchain',
+  requiredForIntegrity: true,
+  blockchainAnchorRequired: true,
+  validationRole: 'Integrity timestamp',
+};
+
+const ROW_GRID =
+  'grid w-full grid-cols-1 gap-4 xl:grid-cols-[minmax(280px,1fr)_minmax(420px,1.4fr)_minmax(220px,0.8fr)] xl:items-start';
+
+function buildVisibleActions(type: DmrvType, expanded: boolean): DmrvInputDef[] {
+  const typeInputs = type.inputDefs;
+  if (!expanded) {
+    return [PROJECT_CONFIG_DEF, ...typeInputs.slice(0, COLLAPSED_PREVIEW_COUNT)];
+  }
+  const seen = new Set<string>();
+  const merged: DmrvInputDef[] = [];
+  for (const def of [
+    PROJECT_CONFIG_DEF,
+    ...typeInputs,
+    ...DMRV_EXPANDED_WORKFLOW_INPUTS,
+    BLOCKCHAIN_LOG_DEF,
+  ]) {
+    if (seen.has(def.key)) continue;
+    seen.add(def.key);
+    merged.push(def);
+  }
+  return merged;
 }
 
 export function DmrvInfographicRow({
@@ -44,107 +79,127 @@ export function DmrvInfographicRow({
   onConfigureInput,
   getInputSourceMeta,
 }: DmrvInfographicRowProps): React.ReactElement {
-  const inputDefs = type.inputDefs.length > 0 ? visibleInputDefs(type.inputDefs) : [];
+  const isSelected = active;
+  const visibleActions = useMemo(() => buildVisibleActions(type, isSelected), [type, isSelected]);
 
-  const rowSurface = `grid w-full grid-cols-1 gap-3 rounded-xl border p-3 transition xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(140px,180px)] xl:items-center xl:gap-4 ${
-    active
-      ? 'border-slate-900 bg-white shadow-md ring-2 ring-slate-900/10'
-      : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
-  }`;
+  const rowSurface = [
+    'w-full rounded-2xl border bg-white transition-all duration-300 ease-out',
+    isSelected
+      ? 'min-h-[250px] border-emerald-600 shadow-lg ring-1 ring-emerald-600/20'
+      : 'min-h-[132px] border-slate-200 shadow-sm hover:border-slate-300 hover:shadow-md',
+  ].join(' ');
+
+  const buttonGridClass = isSelected
+    ? 'grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5'
+    : 'grid grid-cols-3 gap-3';
 
   return (
     <li id={rowId} className="scroll-mt-24">
-      <div
+      <article
         className={rowSurface}
-        style={active ? { borderLeftWidth: 4, borderLeftColor: type.segmentColor } : undefined}
+        style={isSelected ? { borderLeftWidth: 4, borderLeftColor: '#059669' } : undefined}
       >
-        <button type="button" onClick={onSelect} className="flex min-w-0 items-start gap-3 text-left">
-          <DmrvTypeSymbol
-            typeId={type.id}
-            title={type.title}
-            size={44}
-            ringColor={type.segmentColor}
-            className="shrink-0"
-          />
-          <span className="min-w-0 flex-1">
-            <span className="block text-[11px] font-black uppercase tracking-wide text-[#1e3a5f]">
-              {index}. {type.title}
-            </span>
-            <span className="mt-1 block text-[11px] leading-snug text-slate-600">{type.description}</span>
-          </span>
-          <ChevronRight
-            className={`mt-1 h-4 w-4 shrink-0 xl:hidden ${active ? 'text-slate-900' : 'text-slate-400'}`}
-            aria-hidden
-          />
-        </button>
-
-        <div className="border-t border-slate-100 pt-3 xl:border-t-0 xl:pt-0">
-          <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400 xl:hidden">
-            Inputs for evaluation
-          </span>
-
-          <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pb-0.5 [scrollbar-width:thin]">
-            <span className="inline-flex min-w-min flex-nowrap justify-start gap-2.5">
-            <InputConfigChip
-              inputDef={{
-                key: 'project-config',
-                label: 'Project Config',
-                shortDescription: 'Optional — project identity, AOI, methodology, and reporting period.',
-                configType: 'generic',
-                requiredForIntegrity: false,
-                blockchainAnchorRequired: false,
-                validationRole: 'Project context',
-              }}
-              iconLabel="Project Documents"
-              accentColor={type.segmentColor}
-              onPress={onOpenProjectConfig}
+        <div className={`${ROW_GRID} p-4`}>
+          <button
+            type="button"
+            onClick={onSelect}
+            className="flex min-w-0 items-start gap-3 text-left"
+            aria-pressed={isSelected}
+          >
+            <DmrvTypeSymbol
+              typeId={type.id}
+              title={type.title}
+              size={isSelected ? 52 : 44}
+              ringColor={type.segmentColor}
+              className="shrink-0"
             />
-            {inputDefs.map((inputDef) => (
-              <InputConfigChip
-                key={inputDef.key}
-                inputDef={inputDef}
-                accentColor={type.segmentColor}
-                sourceMeta={getInputSourceMeta?.(inputDef.key)}
-                onConfigure={onConfigureInput}
-                isSourcePicker={SOURCE_PICKER_KEYS.has(inputDef.key)}
-              />
-            ))}
-            <InputConfigChip
-              inputDef={{
-                key: 'blockchain-log',
-                label: 'Blockchain log',
-                shortDescription: '',
-                configType: 'blockchain',
-                requiredForIntegrity: true,
-                blockchainAnchorRequired: true,
-                validationRole: 'Integrity timestamp',
-              }}
-              iconLabel="Blockchain log"
-              accentColor={type.segmentColor}
-              onConfigure={onConfigureInput}
-            />
+            <span className="min-w-0 flex-1">
+              {isSelected ? (
+                <span className="mb-1.5 inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white">
+                  Selected workflow
+                </span>
+              ) : null}
+              <span className="block text-[11px] font-black uppercase tracking-wide text-[#1e3a5f] md:text-xs">
+                {index}. {type.title}
+              </span>
+              <span className="mt-1 block text-[11px] leading-snug text-slate-600">{type.description}</span>
+              {!isSelected && type.inputDefs.length > 0 ? (
+                <span className="mt-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-semibold text-slate-600">
+                  {type.inputDefs.length + 2} evidence inputs — select to expand
+                </span>
+              ) : null}
             </span>
+            <ChevronRight
+              className={`mt-1 h-4 w-4 shrink-0 transition-transform duration-300 ${
+                isSelected ? 'rotate-90 text-emerald-700' : 'text-slate-400'
+              }`}
+              aria-hidden
+            />
+          </button>
+
+          <div className="min-w-0">
+            <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">
+              Configuration
+            </span>
+            <div className={buttonGridClass}>
+              {visibleActions.map((inputDef) => (
+                <InputConfigChip
+                  key={inputDef.key}
+                  compact
+                  inputDef={inputDef}
+                  accentColor={type.segmentColor}
+                  sourceMeta={
+                    inputDef.key === 'project-config' ? undefined : getInputSourceMeta?.(inputDef.key)
+                  }
+                  onPress={
+                    inputDef.key === 'project-config' || inputDef.key === 'methodology'
+                      ? onOpenProjectConfig
+                      : undefined
+                  }
+                  onConfigure={
+                    inputDef.availability === 'coming-soon' ||
+                    inputDef.key === 'project-config' ||
+                    inputDef.key === 'methodology'
+                      ? undefined
+                      : onConfigureInput
+                  }
+                  isSourcePicker={SOURCE_PICKER_KEYS.has(inputDef.key)}
+                />
+              ))}
+            </div>
+
+            {isSelected ? (
+              <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 transition-opacity duration-300">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                  Expanded configuration workspace
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Configure evidence sources, methodology, validation rules, evidence packet, and blockchain anchor for
+                  this DMRV type.
+                </p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="min-w-0 border-t border-slate-100 pt-3 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+            <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">
+              Inputs for evaluation
+            </span>
+            <ul className="space-y-0.5 text-[10px] font-medium text-slate-700 md:text-[11px]">
+              {type.evaluationMetrics.map((metric) => (
+                <li key={metric} className="flex items-start gap-1.5">
+                  <span
+                    className="mt-1.5 h-1 w-1 shrink-0 rounded-full"
+                    style={{ backgroundColor: type.segmentColor }}
+                    aria-hidden
+                  />
+                  {metric}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
-
-        <div className="border-t border-slate-100 pt-3 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
-          <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400 xl:hidden">
-            Metrics
-          </span>
-          <ul className="space-y-0.5 text-[10px] font-medium text-slate-700">
-            {type.evaluationMetrics.map((metric) => (
-              <li key={metric} className="flex items-start gap-1.5">
-                <span
-                  className="mt-1.5 h-1 w-1 shrink-0 rounded-full"
-                  style={{ backgroundColor: type.segmentColor }}
-                  aria-hidden
-                />
-                {metric}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      </article>
     </li>
   );
 }
@@ -157,6 +212,7 @@ function InputConfigChip({
   onPress,
   sourceMeta,
   isSourcePicker,
+  compact = false,
 }: {
   inputDef: DmrvInputDef;
   iconLabel?: string;
@@ -165,15 +221,19 @@ function InputConfigChip({
   onPress?: () => void;
   sourceMeta?: DmrvInputSourceMeta;
   isSourcePicker?: boolean;
+  compact?: boolean;
 }): React.ReactElement {
-  const interactive = Boolean(onPress) || Boolean(onConfigure);
+  const comingSoon = inputDef.availability === 'coming-soon';
+  const interactive = !comingSoon && (Boolean(onPress) || Boolean(onConfigure));
   const configured = Boolean(sourceMeta?.configured);
   const hint = onPress ? inputDef.shortDescription || inputDef.label : getInputConfigureHint(inputDef.key);
+  const iconSize = compact ? 34 : 44;
 
   return (
     <button
       type="button"
       onClick={() => {
+        if (!interactive) return;
         if (onPress) {
           onPress();
           return;
@@ -181,48 +241,74 @@ function InputConfigChip({
         onConfigure?.(inputDef);
       }}
       disabled={!interactive}
-      title={interactive ? hint : 'Evidence input unavailable for this row.'}
-      className={`group/input relative flex w-[88px] flex-col items-center gap-1 rounded-xl border px-1 pb-2 pt-1.5 text-center shadow-sm transition ${
-        configured
-          ? 'border-emerald-400/80 bg-gradient-to-b from-emerald-50 to-white hover:shadow-md hover:ring-2 hover:ring-emerald-500/20'
+      title={
+        comingSoon
+          ? `${inputDef.label} — coming soon in this workspace.`
           : interactive
-            ? isSourcePicker
-              ? 'cursor-pointer border-sky-400/70 bg-gradient-to-b from-sky-50 to-white hover:border-sky-500 hover:shadow-md hover:ring-2 hover:ring-sky-500/25'
-              : 'cursor-pointer border-slate-200/90 bg-gradient-to-b from-white to-slate-50 hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
-            : 'cursor-not-allowed border-slate-200/90 bg-gradient-to-b from-white to-slate-50 opacity-55 grayscale-[0.35]'
+            ? hint
+            : 'Evidence input unavailable for this row.'
+      }
+      className={`group/input relative flex w-full min-w-0 flex-col items-center gap-0.5 rounded-lg border px-1 pb-1.5 pt-1 text-center shadow-sm transition ${
+        compact ? 'max-h-[108px]' : ''
+      } ${
+        comingSoon
+          ? 'cursor-not-allowed border-dashed border-slate-200 bg-slate-50/90 opacity-70'
+          : configured
+            ? 'border-emerald-400/80 bg-gradient-to-b from-emerald-50 to-white hover:shadow-md hover:ring-2 hover:ring-emerald-500/20'
+            : interactive
+              ? isSourcePicker
+                ? 'cursor-pointer border-sky-400/70 bg-gradient-to-b from-sky-50 to-white hover:border-sky-500 hover:shadow-md hover:ring-2 hover:ring-sky-500/25'
+                : 'cursor-pointer border-slate-200/90 bg-gradient-to-b from-white to-slate-50 hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
+              : 'cursor-not-allowed border-slate-200/90 bg-gradient-to-b from-white to-slate-50 opacity-55 grayscale-[0.35]'
       }`}
-      style={{ borderColor: configured ? undefined : `${accentColor}40` }}
+      style={{ borderColor: configured || comingSoon ? undefined : `${accentColor}40` }}
     >
-      {!interactive ? (
-        <Lock className="absolute right-1 top-1 h-3 w-3 text-slate-500" aria-hidden />
+      {comingSoon ? (
+        <span className="absolute right-1 top-1 rounded bg-slate-200 px-1 py-px text-[5px] font-black uppercase text-slate-600">
+          Soon
+        </span>
+      ) : !interactive ? (
+        <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-slate-500" aria-hidden />
       ) : null}
-      <DmrvInputSymbol label={iconLabel ?? inputDef.label} size={44} accentColor={accentColor} />
-      <span className="px-0.5 text-[7.5px] font-bold leading-tight text-slate-800">{inputDef.label}</span>
+      <DmrvInputSymbol label={iconLabel ?? inputDef.label} size={iconSize} accentColor={accentColor} />
+      <span
+        className={`px-0.5 font-bold leading-tight text-slate-800 ${compact ? 'text-[6.5px]' : 'text-[7.5px]'}`}
+      >
+        {inputDef.label}
+      </span>
 
-      {configured && sourceMeta ? (
+      {comingSoon ? (
+        <span className="text-[5.5px] font-bold uppercase text-slate-500">Coming soon</span>
+      ) : configured && sourceMeta ? (
         <>
-          <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[6px] font-black uppercase tracking-wide text-white">
-            Configured
+          <span className="rounded-full bg-emerald-600 px-1 py-px text-[5.5px] font-black uppercase tracking-wide text-white">
+            Set
           </span>
-          <span className="text-[6.5px] font-bold text-emerald-800">{sourceMeta.selectedCount} selected</span>
-          <span className="flex max-w-full flex-wrap justify-center gap-0.5 px-0.5">
-            {sourceMeta.chips.map((chip) => (
-              <span
-                key={chip}
-                className="truncate rounded bg-white/90 px-1 py-px text-[5.5px] font-semibold text-[#1e3a5f] ring-1 ring-emerald-200"
-              >
-                {chip}
-              </span>
-            ))}
-          </span>
+          <span className="text-[6px] font-bold text-emerald-800">{sourceMeta.selectedCount} src</span>
+          {sourceMeta.chips.length > 0 && compact ? (
+            <span className="line-clamp-1 max-w-full truncate px-0.5 text-[5.5px] font-semibold text-[#1e3a5f]">
+              {sourceMeta.chips.join(' · ')}
+            </span>
+          ) : (
+            <span className="flex max-w-full flex-wrap justify-center gap-0.5 px-0.5">
+              {sourceMeta.chips.map((chip) => (
+                <span
+                  key={chip}
+                  className="truncate rounded bg-white/90 px-1 py-px text-[5.5px] font-semibold text-[#1e3a5f] ring-1 ring-emerald-200"
+                >
+                  {chip}
+                </span>
+              ))}
+            </span>
+          )}
         </>
       ) : interactive ? (
-        <span className="flex items-center gap-0.5 text-[6.5px] font-black uppercase tracking-wide text-[#1e3a5f] opacity-80 group-hover/input:opacity-100">
-          {isSourcePicker ? 'Pick sources' : 'Configure'}
-          <ChevronRight className="h-2.5 w-2.5" aria-hidden />
+        <span className="flex items-center gap-0.5 text-[6px] font-black uppercase tracking-wide text-[#1e3a5f] opacity-80 group-hover/input:opacity-100">
+          {isSourcePicker ? 'Pick' : inputDef.key === 'project-config' || inputDef.key === 'methodology' ? 'Open' : 'Configure'}
+          <ChevronRight className="h-2 w-2" aria-hidden />
         </span>
       ) : (
-        <span className="text-[6px] font-bold uppercase text-slate-500">Locked</span>
+        <span className="text-[5.5px] font-bold uppercase text-slate-500">Locked</span>
       )}
     </button>
   );
