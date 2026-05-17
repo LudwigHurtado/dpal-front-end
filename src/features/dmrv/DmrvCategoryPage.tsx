@@ -4,6 +4,7 @@ import { ArrowLeft, Package, Shield } from '../../../components/icons';
 import { DmrvConnectorPanel } from './components/DmrvConnectorPanel';
 import { DmrvInfographicBoard } from './components/DmrvInfographicBoard';
 import { DmrvWorkflowPanel } from './components/DmrvWorkflowPanel';
+import { MrvMultiAiValidatorPanel } from './components/MrvMultiAiValidatorPanel';
 import { getCategoryBySlug, getConnector, type DmrvType } from './dmrvRegistry';
 import { openDmrvConnector } from './dmrvNavigation';
 import { DmrvWorkflowShell } from './reporting/DmrvWorkflowShell';
@@ -92,6 +93,7 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
             >
               <DmrvWorkflowSection
                 selectedType={selectedType}
+                projectId={projectId}
                 connectors={connectors}
                 activeConnectorId={activeConnectorId}
                 workflowStep={workflowStep}
@@ -109,6 +111,7 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
           ) : (
             <DmrvWorkflowSection
               selectedType={selectedType}
+              projectId={projectId}
               connectors={connectors}
               activeConnectorId={activeConnectorId}
               workflowStep={workflowStep}
@@ -194,6 +197,7 @@ function CategoryNav({
 
 type DmrvWorkflowSectionProps = {
   selectedType: DmrvType;
+  projectId?: string | null;
   connectors: string[];
   activeConnectorId: string | null;
   workflowStep: number;
@@ -210,6 +214,7 @@ type DmrvWorkflowSectionProps = {
 
 function DmrvWorkflowSection({
   selectedType,
+  projectId,
   connectors,
   activeConnectorId,
   workflowStep,
@@ -252,6 +257,8 @@ function DmrvWorkflowSection({
         onStepChange={onWorkflowStepChange}
         riskFlags={selectedType.riskFlags}
       />
+
+      <MrvMultiAiValidatorPanel selectedType={selectedType} projectId={projectId} />
 
       {showBlockchain ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
