@@ -6,6 +6,7 @@ export type AiVoiceReplyControlsProps = {
   autoSpeak: boolean;
   onAutoSpeakChange: (enabled: boolean) => void;
   isSpeaking: boolean;
+  isGeneratingVoice?: boolean;
   speak: (text: string) => void;
   stopSpeaking: () => void;
   ttsSupported: boolean;
@@ -20,6 +21,7 @@ export function AiVoiceReplyControls({
   autoSpeak,
   onAutoSpeakChange,
   isSpeaking,
+  isGeneratingVoice = false,
   speak,
   stopSpeaking,
   ttsSupported,
@@ -47,18 +49,21 @@ export function AiVoiceReplyControls({
       {trimmedReply && ttsSupported ? (
         <button
           type="button"
+          disabled={isGeneratingVoice}
           onClick={() => {
-            if (isSpeaking) {
+            if (isSpeaking || isGeneratingVoice) {
               stopSpeaking();
               return;
             }
             speak(trimmedReply);
           }}
-          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[9px] font-bold text-[#1e3a5f] hover:bg-slate-50"
-          aria-label={isSpeaking ? 'Stop speaking' : 'Listen to reply'}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[9px] font-bold text-[#1e3a5f] hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+          aria-label={
+            isGeneratingVoice ? 'Generating voice' : isSpeaking ? 'Stop speaking' : 'Listen to reply'
+          }
         >
           <Volume2 className="h-3 w-3" aria-hidden />
-          {isSpeaking ? 'Stop' : listenLabel}
+          {isGeneratingVoice ? 'Loading…' : isSpeaking ? 'Stop' : listenLabel}
         </button>
       ) : null}
     </div>

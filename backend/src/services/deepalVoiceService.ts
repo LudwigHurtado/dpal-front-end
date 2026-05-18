@@ -254,6 +254,44 @@ function resolveAudioUrl(audioUrl: string, chatterboxBaseUrl: string): string {
   return trimmed;
 }
 
+/** Browser cannot load Railway internal DNS or localhost URLs from the user's device. */
+function isBrowserUnplayableAudioUrl(url: string): boolean {
+  if (url.startsWith('data:')) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host.endsWith('.railway.internal') ||
+      host.endsWith('.internal')
+    );
+  } catch {
+    return true;
+  }
+}
+
+/** Fetch upstream audio on the server and return a data: URL the browser can play. */
+async function toBrowserPlayableAudioUrl(
+  audioUrl: string,
+  contentType: string,
+  headers: Record<string, string>,
+): Promise<string> {
+  if (!isBrowserUnplayableAudioUrl(audioUrl)) return audioUrl;
+
+  const response = await fetch(audioUrl, {
+    method: 'GET',
+    headers: { ...headers, Accept: 'audio/*' },
+    signal: AbortSignal.timeout(chatterboxSynthesizeTimeoutMs()),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch audio from Chatterbox host (HTTP ${response.status}).`);
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const mime =
+    response.headers.get('content-type')?.split(';')[0]?.trim() || contentType || 'audio/wav';
+  return buildAudioDataUrl(mime, buffer.toString('base64'));
+}
+
 function pickAudioFromJson(
   data: Record<string, unknown>,
   chatterboxBaseUrl: string,
@@ -359,12 +397,20 @@ export async function synthesizeDeepAlVoice(
         return voiceUnavailable('Chatterbox returned JSON without audio.');
       }
 
-      const audioUrl =
+      let audioUrl =
         audio.audioUrl ??
         (audio.audioBase64 ? buildAudioDataUrl(audio.contentType, audio.audioBase64) : '');
 
       if (!audioUrl) {
         return voiceUnavailable('Chatterbox returned no playable audio URL.');
+      }
+
+      try {
+        audioUrl = await toBrowserPlayableAudioUrl(audioUrl, audio.contentType, headers);
+      } catch (e: unknown) {
+        return voiceUnavailable(
+          e instanceof Error ? e.message : 'Could not prepare audio for browser playback.',
+        );
       }
 
       return {

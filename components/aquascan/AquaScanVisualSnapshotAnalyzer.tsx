@@ -286,6 +286,7 @@ export default function AquaScanVisualSnapshotAnalyzer({
         autoSpeak={voice.autoSpeak}
         onAutoSpeakChange={voice.setAutoSpeak}
         isSpeaking={voice.isSpeaking}
+        isGeneratingVoice={voice.isGeneratingVoice}
         speak={voice.speak}
         stopSpeaking={voice.stopSpeaking}
         ttsSupported={voice.ttsSupported}
