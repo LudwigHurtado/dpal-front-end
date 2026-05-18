@@ -147,9 +147,9 @@ export const API_ROUTES = {
   MRV_PROJECTS: '/api/mrv/projects',
   /** POST — AI Report Reader (Gemini when configured; deterministic fallback). */
   DPAL_ASSISTANT_REPORT_READER_CHAT: '/api/dpal-assistant/report-reader/chat',
-  /** DeepAL structured chat + audit-safe rationale */
+  /** DPAL Assistant structured chat + audit-safe rationale (repo backend/) */
   DEEPAL_CHAT: '/api/deepal/chat',
-  /** DeepAL Chatterbox voice synthesis (server proxy) */
+  /** DPAL Assistant voice synthesis via Chatterbox (server proxy, repo backend/) */
   DEEPAL_VOICE_SYNTHESIZE: '/api/deepal/voice/synthesize',
   /** DPAL Water Monitor + Verified Water Impact Credits */
   WATER_PROJECTS: '/api/water/projects',

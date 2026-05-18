@@ -12,6 +12,8 @@ export type UseTextToSpeechResult = {
   isSupported: boolean;
   isSpeaking: boolean;
   speak: (text: string) => void;
+  /** Resolves when playback ends or fails. */
+  speakAsync: (text: string) => Promise<boolean>;
   stop: () => void;
 };
 
@@ -34,30 +36,43 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}): UseTextTo
     setIsSpeaking(false);
   }, []);
 
-  const speak = useCallback(
-    (text: string) => {
+  const speakAsync = useCallback(
+    (text: string): Promise<boolean> => {
       const trimmed = text.trim();
-      if (!trimmed || typeof window === 'undefined' || !window.speechSynthesis) return;
+      if (!trimmed || typeof window === 'undefined' || !window.speechSynthesis) {
+        return Promise.resolve(false);
+      }
 
       stop();
 
-      const utterance = new SpeechSynthesisUtterance(trimmed);
-      utterance.lang = language;
-      utterance.rate = rate;
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        utteranceRef.current = null;
-      };
-      utterance.onerror = () => {
-        setIsSpeaking(false);
-        utteranceRef.current = null;
-      };
+      return new Promise((resolve) => {
+        const utterance = new SpeechSynthesisUtterance(trimmed);
+        utterance.lang = language;
+        utterance.rate = rate;
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          utteranceRef.current = null;
+          resolve(true);
+        };
+        utterance.onerror = () => {
+          setIsSpeaking(false);
+          utteranceRef.current = null;
+          resolve(false);
+        };
 
-      utteranceRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
+        utteranceRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
+      });
     },
     [language, rate, stop],
+  );
+
+  const speak = useCallback(
+    (text: string) => {
+      void speakAsync(text);
+    },
+    [speakAsync],
   );
 
   useEffect(
@@ -67,5 +82,5 @@ export function useTextToSpeech(options: UseTextToSpeechOptions = {}): UseTextTo
     [stop],
   );
 
-  return { isSupported, isSpeaking, speak, stop };
+  return { isSupported, isSpeaking, speak, speakAsync, stop };
 }

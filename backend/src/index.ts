@@ -26,6 +26,7 @@ import hyperspectralPlasticWatchRouter from './routes/hyperspectralPlasticWatch'
 import satelliteAccountabilityRouter from './routes/satelliteAccountability';
 import commandCenterRouter from './routes/commandCenter';
 import dpalAssistantRouter from './routes/dpalAssistant';
+import deepalRouter from './routes/deepal';
 import situationRouter from './routes/situation';
 import goodWheelsRouter from './routes/goodWheels';
 import signalsRouter from './routes/signals';
@@ -54,6 +55,8 @@ app.use(helmet());
 const BUILT_IN_ORIGINS = [
   'https://dpal-enterprise-dashboard.vercel.app',
   'https://dpal-front-end.vercel.app',
+  'https://dpal.info',
+  'https://www.dpal.info',
 ];
 
 const normalizeOrigin = (value: string): string => value.trim().replace(/\/+$/, '');
@@ -83,6 +86,9 @@ app.use(cors({
     if (/^https:\/\/dpal-front-end(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(normalizedOrigin)) {
       return cb(null, true);
     }
+    if (/^https:\/\/(www\.)?dpal\.info$/i.test(normalizedOrigin)) {
+      return cb(null, true);
+    }
     // In development allow localhost and loopback (Vite default host / LAN URLs)
     if (process.env.NODE_ENV !== 'production') {
       if (/^https?:\/\/localhost(?::\d+)?$/i.test(normalizedOrigin)) return cb(null, true);
@@ -90,7 +96,7 @@ app.use(cors({
       if (/^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(?::\d+)?$/i.test(normalizedOrigin)) return cb(null, true);
     }
     console.warn(`[CORS] Blocked origin: ${origin}`);
-    return cb(new Error(`CORS: origin ${origin} not allowed`));
+    return cb(null, false);
   },
   credentials: true,
 }));
@@ -174,6 +180,8 @@ app.use('/api/hyperspectral-plastic', hyperspectralPlasticWatchRouter);
 app.use('/api/satellite-accountability', satelliteAccountabilityRouter);
 app.use('/api/command-center', commandCenterRouter);
 app.use('/api/dpal-assistant', dpalAssistantRouter);
+/** DPAL Assistant structured chat + voice (paths: /api/deepal/chat, /api/deepal/voice/synthesize) */
+app.use('/api/deepal', deepalRouter);
 app.use('/api/signals', signalsRouter);
 app.use('/api/situation', situationRouter);
 app.use('/api/good-wheels', goodWheelsRouter);
@@ -291,6 +299,15 @@ app.use((_req, res) => {
 
 // ── Error handler ──────────────────────────────────────────────────────────────
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (/^CORS:/i.test(err.message)) {
+    res.status(403).json({
+      ok: false,
+      error: 'CORS blocked',
+      measurementStatus: 'backend_unavailable',
+      message: err.message,
+    });
+    return;
+  }
   // Malformed JSON from express.json() — return 400, not 500 (common with shell quoting).
   if (err instanceof SyntaxError && 'body' in err) {
     console.warn(`[FloodGuard][schema] invalid JSON body: ${err.message}`);

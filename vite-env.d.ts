@@ -18,6 +18,7 @@ interface ImportMetaEnv {
   readonly VITE_DPAL_API_BASE_URL?: string;
   /** When `true`, logs integrations request URL / path / lifecycle (no secrets, no full provider bodies). */
   readonly VITE_DPAL_API_DEBUG?: string;
+  /** @deprecated Use VITE_API_BASE or VITE_DPAL_API_BASE_URL (repo backend/ only). */
   readonly VITE_DPAL_AI_SERVER_URL?: string;
   readonly VITE_DPAL_MEDIA_BASE_URL?: string;
   readonly VITE_DPAL_PUBLIC_FRONTEND_URL?: string;
@@ -45,6 +46,8 @@ interface ImportMetaEnv {
   readonly VITE_REVIEWER_NODE_API_BASE?: string;
   /** Validator / Verifier portal URL opened from the main menu (static app, often Vercel). */
   readonly VITE_VALIDATOR_PORTAL_URL?: string;
+  /** Optional Chatterbox voice id override for POST /api/deepal/voice/synthesize (server CHATTERBOX_VOICE_ID preferred). */
+  readonly VITE_CHATTERBOX_VOICE_ID?: string;
 }
 
 interface ImportMeta {

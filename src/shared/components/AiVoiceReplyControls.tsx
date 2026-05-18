@@ -11,6 +11,8 @@ export type AiVoiceReplyControlsProps = {
   ttsSupported: boolean;
   ttsUnsupportedMessage: string;
   className?: string;
+  /** Manual TTS button label (default: Listen). */
+  listenLabel?: string;
 };
 
 export function AiVoiceReplyControls({
@@ -23,6 +25,7 @@ export function AiVoiceReplyControls({
   ttsSupported,
   ttsUnsupportedMessage,
   className = '',
+  listenLabel = 'Listen',
 }: AiVoiceReplyControlsProps): React.ReactElement {
   const trimmedReply = replyText?.trim() ?? '';
 
@@ -55,7 +58,7 @@ export function AiVoiceReplyControls({
           aria-label={isSpeaking ? 'Stop speaking' : 'Listen to reply'}
         >
           <Volume2 className="h-3 w-3" aria-hidden />
-          {isSpeaking ? 'Stop' : 'Listen'}
+          {isSpeaking ? 'Stop' : listenLabel}
         </button>
       ) : null}
     </div>
