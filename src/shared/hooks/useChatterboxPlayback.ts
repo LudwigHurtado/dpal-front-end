@@ -1,7 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { postDeepAlVoiceSynthesize, resolveVoiceAudioUrl } from '../api/deepalVoiceApi';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
+import {
+  postDeepAlVoiceSynthesize,
+  resolveVoiceAudioUrl,
+  type DeepAlVoiceSynthesizeResponse,
+} from '../api/deepalVoiceApi';
 
 const DEFAULT_CLIENT_TIMEOUT_MS = 120_000;
+
+export type ChatterboxPlayResult =
+  | { success: true }
+  | { success: false; reason: string };
 
 export type UseChatterboxPlaybackOptions = {
   workspace?: string;
@@ -13,11 +21,91 @@ export type UseChatterboxPlaybackOptions = {
   onPlaybackError?: (message: string) => void;
 };
 
+function audioUrlType(url: string): 'data-uri' | 'url' {
+  return url.startsWith('data:') ? 'data-uri' : 'url';
+}
+
+function resolveResponseAudioUrl(response: DeepAlVoiceSynthesizeResponse): string | null {
+  if (!response.ok) return null;
+  if (response.audioUrl?.trim()) return response.audioUrl.trim();
+  return resolveVoiceAudioUrl(response as unknown as Record<string, unknown>);
+}
+
+function pauseCurrentAudio(currentAudioRef: MutableRefObject<HTMLAudioElement | null>) {
+  const prev = currentAudioRef.current;
+  if (!prev) return;
+  prev.onended = null;
+  prev.onerror = null;
+  prev.onplay = null;
+  prev.pause();
+  prev.currentTime = 0;
+  prev.removeAttribute('src');
+  prev.load();
+  currentAudioRef.current = null;
+}
+
+/** Play Chatterbox audio via HTMLAudioElement (data: URIs and https URLs). */
+function playChatterboxAudio(
+  audioUrl: string,
+  currentAudioRef: MutableRefObject<HTMLAudioElement | null>,
+  hooks: {
+    onStart?: () => void;
+    onEnd?: () => void;
+    onError?: (message: string) => void;
+  },
+): Promise<{ success: true } | { success: false; reason: string }> {
+  pauseCurrentAudio(currentAudioRef);
+
+  return new Promise((resolve) => {
+    const audio = new Audio(audioUrl);
+    currentAudioRef.current = audio;
+    let settled = false;
+
+    const finish = (success: boolean, reason?: string) => {
+      if (settled) return;
+      settled = true;
+      if (!success) {
+        pauseCurrentAudio(currentAudioRef);
+        const msg = reason ?? 'HTMLAudioElement playback failed.';
+        hooks.onError?.(msg);
+        resolve({ success: false, reason: msg });
+        return;
+      }
+      resolve({ success: true });
+    };
+
+    audio.onplay = () => {
+      hooks.onStart?.();
+      finish(true);
+    };
+
+    audio.onended = () => {
+      pauseCurrentAudio(currentAudioRef);
+      hooks.onEnd?.();
+    };
+
+    audio.onerror = () => {
+      finish(false, 'HTMLAudioElement could not decode or play Chatterbox audio.');
+    };
+
+    void audio.play().then(() => {
+      if (!settled) {
+        hooks.onStart?.();
+        finish(true);
+      }
+    }).catch((err: unknown) => {
+      const message =
+        err instanceof Error ? err.message : 'audio.play() rejected (autoplay or decode error).';
+      finish(false, message);
+    });
+  });
+}
+
 export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -31,21 +119,16 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
   const stop = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-      audioRef.current = null;
-    }
+    pauseCurrentAudio(currentAudioRef);
     revokeObjectUrl();
     setIsPlaying(false);
     setIsLoading(false);
   }, [revokeObjectUrl]);
 
   const playText = useCallback(
-    async (text: string): Promise<boolean> => {
+    async (text: string): Promise<ChatterboxPlayResult> => {
       const trimmed = text.trim();
-      if (!trimmed) return false;
+      if (!trimmed) return { success: false, reason: 'No text to speak.' };
 
       stop();
       setIsLoading(true);
@@ -54,7 +137,7 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
       const controller = new AbortController();
       abortRef.current = controller;
 
-      const result = await postDeepAlVoiceSynthesize(trimmed, {
+      const response = await postDeepAlVoiceSynthesize(trimmed, {
         workspace: options.workspace,
         module: options.module,
         signal: controller.signal,
@@ -63,64 +146,64 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
 
       if (controller.signal.aborted) {
         setIsLoading(false);
-        return false;
+        return { success: false, reason: 'Voice request cancelled.' };
       }
 
-      if (!result.ok) {
-        const msg = result.message ?? result.error ?? 'Voice synthesis unavailable.';
-        console.warn('[DeepAL Voice] Falling back to browser TTS', msg);
-        setLastError(msg);
+      if (!response.ok) {
+        const reason = response.message ?? response.error ?? 'Voice synthesis unavailable.';
+        console.warn('[DeepAL Voice] Browser TTS fallback used', reason);
+        setLastError(reason);
         setIsLoading(false);
-        options.onPlaybackError?.(msg);
-        return false;
+        options.onPlaybackError?.(reason);
+        return { success: false, reason };
       }
 
-      const audioUrl =
-        result.audioUrl ?? resolveVoiceAudioUrl(result as unknown as Record<string, unknown>);
+      const audioUrl = resolveResponseAudioUrl(response);
 
       if (!audioUrl) {
-        const msg = 'Chatterbox returned no playable audioUrl.';
-        console.warn('[DeepAL Voice] Falling back to browser TTS', msg);
-        setLastError(msg);
+        const reason = 'Chatterbox response missing audioUrl.';
+        console.warn('[DeepAL Voice] Browser TTS fallback used', reason);
+        setLastError(reason);
         setIsLoading(false);
-        options.onPlaybackError?.(msg);
-        return false;
+        options.onPlaybackError?.(reason);
+        return { success: false, reason };
       }
 
-      console.info('[DeepAL Voice] Chatterbox audioUrl', audioUrl.slice(0, 80));
+      console.info('[DeepAL Voice] Chatterbox audio received', {
+        ok: response.ok,
+        hasAudioUrl: Boolean(audioUrl),
+        audioUrlType: audioUrlType(audioUrl),
+      });
 
-      try {
-        const audio = new Audio(audioUrl);
-        if (audioUrl.startsWith('blob:')) {
-          objectUrlRef.current = audioUrl;
-        }
-        audioRef.current = audio;
-        audio.onplay = () => {
+      if (audioUrl.startsWith('blob:')) {
+        objectUrlRef.current = audioUrl;
+      }
+
+      const playback = await playChatterboxAudio(audioUrl, currentAudioRef, {
+        onStart: () => {
           setIsLoading(false);
           setIsPlaying(true);
           options.onPlaybackStart?.();
-        };
-        audio.onended = () => {
-          stop();
+        },
+        onEnd: () => {
+          setIsPlaying(false);
           options.onPlaybackEnd?.();
-        };
-        audio.onerror = () => {
-          const msg = 'Could not play synthesized audio.';
-          console.warn('[DeepAL Voice] Falling back to browser TTS', msg);
-          setLastError(msg);
-          stop();
-          options.onPlaybackError?.(msg);
-        };
-        await audio.play();
-        return true;
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Audio playback failed.';
-        console.warn('[DeepAL Voice] Falling back to browser TTS', msg);
-        setLastError(msg);
-        stop();
-        options.onPlaybackError?.(msg);
-        return false;
+        },
+        onError: (message) => {
+          console.warn('[DeepAL Voice] Browser TTS fallback used', message);
+          setLastError(message);
+          setIsPlaying(false);
+          setIsLoading(false);
+          options.onPlaybackError?.(message);
+        },
+      });
+
+      if (!playback.success) {
+        setIsLoading(false);
+        return playback;
       }
+
+      return { success: true };
     },
     [options, stop],
   );

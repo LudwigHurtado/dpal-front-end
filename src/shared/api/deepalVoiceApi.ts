@@ -72,16 +72,53 @@ export async function postDeepAlVoiceSynthesize(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    const data = (await res.json().catch(() => ({}))) as DeepAlVoiceSynthesizeResponse;
-    if (!res.ok && data.ok !== true) {
+    const data = (await res.json().catch(() => ({}))) as DeepAlVoiceSynthesizeResponse &
+      Record<string, unknown>;
+
+    if (data.ok === true) {
+      const audioUrl =
+        typeof data.audioUrl === 'string' && data.audioUrl.trim()
+          ? data.audioUrl.trim()
+          : resolveVoiceAudioUrl(data);
+      if (audioUrl) {
+        return {
+          ok: true,
+          voiceEngine: 'chatterbox',
+          audioUrl,
+          ttsText: typeof data.ttsText === 'string' ? data.ttsText : trimmed,
+          generatedAt: typeof data.generatedAt === 'string' ? data.generatedAt : new Date().toISOString(),
+          contentType:
+            typeof data.contentType === 'string'
+              ? data.contentType
+              : typeof data.content_type === 'string'
+                ? data.content_type
+                : undefined,
+        };
+      }
       return {
         ok: false,
-        error: data.error ?? 'VOICE_UNAVAILABLE',
-        fallback: data.fallback ?? 'text-only',
-        message: data.message ?? `Voice API HTTP ${res.status}`,
+        error: 'VOICE_UNAVAILABLE',
+        fallback: 'text-only',
+        message: 'Chatterbox returned ok without a playable audioUrl.',
       };
     }
-    return data;
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: typeof data.error === 'string' ? data.error : 'VOICE_UNAVAILABLE',
+        fallback: data.fallback === 'text-only' ? 'text-only' : 'text-only',
+        message:
+          typeof data.message === 'string' ? data.message : `Voice API HTTP ${res.status}`,
+      };
+    }
+
+    return {
+      ok: false,
+      error: 'VOICE_UNAVAILABLE',
+      fallback: 'text-only',
+      message: 'Unexpected voice API response.',
+    };
   } catch (e: unknown) {
     const aborted = e instanceof Error && e.name === 'AbortError';
     return {

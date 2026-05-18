@@ -117,13 +117,16 @@ export function useConversationMode(options: UseConversationModeOptions) {
 
   const playReplyVoice = useCallback(
     async (text: string): Promise<boolean> => {
-      const played = await chatterbox.playText(text);
-      if (played) return true;
+      browserTts.stop();
+      const playResult = await chatterbox.playText(text);
+      if (playResult.success) return true;
+      const reason = playResult.reason;
+      console.warn('[DeepAL Voice] Browser TTS fallback used', reason);
       if (!browserTts.isSupported) return false;
       setPhase(transitionOnVoiceStart());
       const browserPlayed = await browserTts.speakAsync(text);
       if (browserPlayed) {
-        setVoiceNotice('Using browser voice — Chatterbox is unavailable on this API host.');
+        setVoiceNotice('Chatterbox failed, using browser voice');
         finishVoicePlayback();
         return true;
       }

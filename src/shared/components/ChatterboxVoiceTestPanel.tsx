@@ -53,14 +53,20 @@ export function ChatterboxVoiceTestPanel({
       const rawJson = JSON.stringify(result, null, 2);
 
       if (result.ok && result.audioUrl) {
-        console.info('[DeepAL Voice] Chatterbox audioUrl', result.audioUrl.slice(0, 120));
-        const audio = new Audio(result.audioUrl);
+        const url = result.audioUrl;
+        console.info('[DeepAL Voice] Chatterbox audio received', {
+          ok: result.ok,
+          hasAudioUrl: true,
+          audioUrlType: url.startsWith('data:') ? 'data-uri' : 'url',
+        });
+        stopAudio();
+        const audio = new Audio(url);
         audioRef.current = audio;
         await audio.play();
         setState({
           loading: false,
           rawJson,
-          audioUrl: result.audioUrl,
+          audioUrl: url,
           usedBrowserFallback: false,
           error: null,
         });
@@ -83,7 +89,7 @@ export function ChatterboxVoiceTestPanel({
       }
 
       if (typeof window !== 'undefined' && window.speechSynthesis) {
-        console.warn('[DeepAL Voice] Falling back to browser TTS', result);
+        console.warn('[DeepAL Voice] Browser TTS fallback used', result);
         await new Promise<void>((resolve) => {
           const utterance = new SpeechSynthesisUtterance(TEST_PHRASE);
           utterance.onend = () => resolve();

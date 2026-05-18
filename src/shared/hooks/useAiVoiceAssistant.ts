@@ -27,8 +27,8 @@ export function useAiVoiceAssistant(options: UseAiVoiceAssistantOptions = {}) {
   }, [autoSpeak]);
 
   const stopSpeaking = useCallback(() => {
-    chatterbox.stop();
     browserTts.stop();
+    chatterbox.stop();
     setVoiceProvider(null);
     setStatusMessage(null);
   }, [browserTts, chatterbox]);
@@ -40,27 +40,23 @@ export function useAiVoiceAssistant(options: UseAiVoiceAssistantOptions = {}) {
 
       void (async () => {
         stopSpeaking();
-        setStatusMessage('Generating Chatterbox voice…');
+        setStatusMessage('Generating Chatterbox voice');
 
-        const played = await chatterbox.playText(trimmed);
-        if (played) {
+        const playResult = await chatterbox.playText(trimmed);
+        if (playResult.success) {
           setVoiceProvider('chatterbox');
           setStatusMessage('Playing Chatterbox voice');
           return;
         }
 
-        const fallbackReason =
-          chatterbox.lastError ?? 'Chatterbox unavailable';
-        console.warn('[DeepAL Voice] Falling back to browser TTS', fallbackReason);
-        setStatusMessage('Chatterbox unavailable, using browser fallback…');
+        const fallbackReason = playResult.reason;
+        console.warn('[DeepAL Voice] Browser TTS fallback used', fallbackReason);
+        setStatusMessage('Chatterbox failed, using browser voice');
+
         const browserPlayed = await browserTts.speakAsync(trimmed);
         if (browserPlayed) {
           setVoiceProvider('browser');
-          setStatusMessage(
-            chatterbox.lastError
-              ? `Chatterbox unavailable, using browser fallback (${chatterbox.lastError})`
-              : 'Chatterbox unavailable, using browser fallback',
-          );
+          setStatusMessage('Chatterbox failed, using browser voice');
         } else {
           setVoiceProvider(null);
           setStatusMessage(
