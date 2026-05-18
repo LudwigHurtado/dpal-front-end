@@ -78,7 +78,7 @@ import {
   reverseGeocodeUsState,
 } from './utils/eiasLocationDetection';
 
-/** Same host as `VITE_API_BASE` must expose `/api/emissions-audit/*` (Prisma `backend/` today; not on default Railway `dpal-ai-server`). */
+/** Same host as `VITE_API_BASE` must expose `/api/emissions-audit/*` (repo `backend/` Prisma + JWT). */
 const EIAS_API_DISCLAIMER =
   'Saved audits require an API that implements /api/emissions-audit/* and a compatible sign-in (local backend/Prisma JWT). Production Railway often returns 401/404 here; workspace + carbon adapter pulls still work.';
 const LOCAL_DRAFT_HINT = 'This browser keeps an auto-saved local draft of the workspace (facility, periods, inputs, links).';

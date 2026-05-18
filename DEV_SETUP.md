@@ -1,6 +1,8 @@
-# Testing DPAL locally (dev) with Railway backend
+# Testing DPAL locally (dev) with repo backend
 
-Everything runs on Railway in production. To test **on your machine** while still using the **Railway backend and MongoDB**, follow these steps.
+**DPAL** = Decentralized Public Accountability Ledger (**D-P-A-L**, not “Deepal”).
+
+Production deploys the **`backend/`** folder from this repo (`service: "dpal-backend"`). To test **on your machine** with the same API surface, run **`backend/`** locally (recommended) or optionally point at a remote deployed backend.
 
 **Dev server URL (remember):** When you run `npm run dev`, the app is available at:
 - **On this machine:** http://localhost:3000/
@@ -37,36 +39,45 @@ Wait until it finishes (no red errors).
 
 ---
 
-## 4. Point the app at your Railway backend
+## 4. Start the repo backend (recommended)
 
-Create or edit **`.env.local`** in the project root (same folder as `package.json`).
-
-**If you don’t have `.env.local`:** copy from the example:
+In a **second** terminal:
 
 ```bash
-copy .env.example .env.local
+cd backend
+npm install
+copy .env.example .env
+npm run dev
 ```
 
-Then edit `.env.local` and set your **real Railway backend URL**:
+Confirm: `curl http://127.0.0.1:3001/health` → `"service":"dpal-backend"`.
+
+## 5. Front-end env (optional)
+
+Create **`.env.local`** in the project root (`copy .env.example .env.local`).
+
+**Default local path:** leave `VITE_API_BASE` unset — Vite proxies `/api` → `http://127.0.0.1:3001`.
+
+Or set explicitly:
 
 ```env
-VITE_API_BASE=https://YOUR-RAILWAY-APP.up.railway.app
+VITE_API_BASE=http://127.0.0.1:3001
+VITE_USE_SERVER_AI=true
 ```
 
-- Replace `YOUR-RAILWAY-APP` with your actual Railway service URL (from Railway dashboard → your backend service → Settings → Domains).
-- If your backend is already `https://web-production-a27b.up.railway.app`, you can keep that.
+Set `GEMINI_API_KEY` in **`backend/.env`** for server AI (`POST /api/ai/gemini`, DPAL Assistant). Do **not** use `VITE_DPAL_AI_SERVER_URL` (deprecated).
 
-Optional (only if you use AI features from the frontend):
+**Optional remote backend:** only if you need production data:
 
 ```env
-VITE_GEMINI_API_KEY=your_key_here
+VITE_API_BASE=https://YOUR-DEPLOYED-BACKEND.up.railway.app
 ```
 
-Save the file.
+Must be a **`dpal-backend`** host from this repo’s `backend/`, not legacy **`dpal-ai-server`**.
 
 ---
 
-## 5. Start the dev server
+## 6. Start the dev server
 
 ```bash
 npm run dev

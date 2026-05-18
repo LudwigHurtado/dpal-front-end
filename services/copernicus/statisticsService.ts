@@ -72,10 +72,16 @@ export async function fetchAoiStatisticsComparison(params: {
     const status = err.measurementStatus ?? (response.status >= 500 ? 'upstream_error' : 'parser_failed');
     const detailMessage = upstreamMessageFromDetails(err.details);
     const fallback = err.reason ?? detailMessage ?? err.error ?? `Statistics API error ${response.status}`;
-    const message = response.status >= 500 && fallback === 'Internal server error'
-      ? 'The measurement API returned an unexpected error. Retry in a moment, or redraw a smaller AOI and use Sentinel-2 with NDWI.'
-      : fallback;
-    throw new Error(`${status}: ${message}`);
+    const corsBlocked =
+      response.status === 403
+      && (fallback === 'CORS blocked' || /cors/i.test(String((err as { message?: string }).message ?? '')));
+    const message = corsBlocked
+      ? 'This site origin is not allowed by the API server. Use the built-in /api proxy (dpal.info) or add your domain to Railway CORS_ORIGINS / FRONTEND_ORIGIN.'
+      : response.status >= 500 && fallback === 'Internal server error'
+        ? 'The measurement API returned an unexpected error. Retry in a moment, or redraw a smaller AOI and use Sentinel-2 with NDWI.'
+        : fallback;
+    const resolvedStatus = corsBlocked ? 'backend_unavailable' : status;
+    throw new Error(`${resolvedStatus}: ${message}`);
   }
   const payload = (await response.json()) as { comparison?: CopernicusStatisticsComparisonResponse };
   if (!payload.comparison) {

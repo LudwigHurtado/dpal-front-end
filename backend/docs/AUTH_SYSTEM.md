@@ -30,6 +30,6 @@ After pulling schema changes:
 cd backend && npx prisma migrate dev --name add_dpal_users
 ```
 
-## Production (Railway / `dpal-ai-server`)
+## Production (Railway — repo `backend/`, service `dpal-backend`)
 
 This repo’s `backend/` folder is the **reference implementation** for the same API contract (`/api/auth/*`). Deploy these routes on your Node host with `JWT_SECRET`, `DATABASE_URL`, and CORS origins configured; the Vite app uses `VITE_API_BASE` to reach that host.

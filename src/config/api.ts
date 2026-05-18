@@ -43,6 +43,7 @@ export type DpalApiConfig = {
   frontendOrigin: string;
   publicFrontendBaseUrl: string;
   apiBaseUrl: string;
+  /** @deprecated Use apiBaseUrl. Kept for geminiService fallback reads only. */
   aiServerUrl: string;
   mediaBaseUrl: string;
   source: 'explicit' | 'legacy' | 'dev-fallback' | 'backend-fallback';
@@ -50,6 +51,7 @@ export type DpalApiConfig = {
 };
 
 let warnedMissingApi = false;
+let warnedDeprecatedAiServerUrl = false;
 let warnedFrontendAsApi = false;
 
 export function getDpalApiConfig(): DpalApiConfig {
@@ -60,24 +62,30 @@ export function getDpalApiConfig(): DpalApiConfig {
   const fromOverride =
     typeof window !== 'undefined' ? normalizeBase(window.localStorage.getItem('dpal_api_base_override')) : '';
   const fromNew = normalizeBase(e.VITE_DPAL_API_BASE_URL);
-  /** Legacy alias — same as VITE_API_BASE; points at repo `backend/` deployment. */
-  const fromAi = normalizeBase(e.VITE_DPAL_AI_SERVER_URL);
   const fromLegacy = normalizeBase(e.VITE_API_BASE);
+  const fromDeprecatedAi = normalizeBase(e.VITE_DPAL_AI_SERVER_URL);
+  if (fromDeprecatedAi && !warnedDeprecatedAiServerUrl) {
+    warnedDeprecatedAiServerUrl = true;
+    console.warn(
+      '[DPAL API] VITE_DPAL_AI_SERVER_URL is deprecated. Use VITE_API_BASE or VITE_DPAL_API_BASE_URL (repo backend/ only — not a separate “Deepal” server).',
+    );
+  }
 
   /**
    * Dev without explicit env: empty base → relative `/api/*` via Vite proxy to `backend/` (port 3001).
    * Prod without explicit env: empty base → same-origin `/api/*` when hosting rewrites to backend.
    */
-  const apiBase = fromOverride || fromNew || fromAi || fromLegacy || (isDev ? '' : '');
-  const source: DpalApiConfig['source'] = fromOverride || fromNew || fromAi
+  const apiBase =
+    fromOverride || fromNew || fromLegacy || fromDeprecatedAi || (isDev ? '' : '');
+  const source: DpalApiConfig['source'] = fromOverride || fromNew
     ? 'explicit'
-    : fromLegacy
+    : fromLegacy || fromDeprecatedAi
       ? 'legacy'
       : isDev
         ? 'dev-fallback'
         : 'backend-fallback';
 
-  if (!fromOverride && !fromNew && !fromAi && !fromLegacy && !warnedMissingApi) {
+  if (!fromOverride && !fromNew && !fromLegacy && !fromDeprecatedAi && !warnedMissingApi) {
     warnedMissingApi = true;
     console.warn(
       '[DPAL API] No VITE_API_BASE set. Local dev uses Vite /api proxy → backend/ (port 3001). Production: set VITE_API_BASE to your deployed backend/ origin.',
@@ -110,10 +118,10 @@ export function getDpalApiConfig(): DpalApiConfig {
     frontendOrigin,
     publicFrontendBaseUrl,
     apiBaseUrl: resolvedApiBase,
-    aiServerUrl: fromAi || resolvedApiBase || apiBase,
+    aiServerUrl: resolvedApiBase || apiBase,
     mediaBaseUrl,
     source,
-    hasExplicitApiConfig: Boolean(fromOverride || fromNew || fromAi || fromLegacy),
+    hasExplicitApiConfig: Boolean(fromOverride || fromNew || fromLegacy || fromDeprecatedAi),
   };
 }
 

@@ -1,6 +1,8 @@
 # Set production API URL on Vercel (one-time)
 
-So **https://dpal-front-end.vercel.app/** uses the same Railway backend as dev.
+So **https://dpal-front-end.vercel.app/** talks to the repo **`backend/`** service (`dpal-backend` on `/health`), not a separate “Deepal AI server.”
+
+**DPAL** = Decentralized Public Accountability Ledger (**D-P-A-L**).
 
 ---
 
@@ -20,7 +22,7 @@ When prompted for the value, paste:
 ```
 https://web-production-a27b.up.railway.app
 ```
-(Or your actual Railway backend URL — no trailing slash.)
+Use your deployed **`backend/`** Railway URL (must return `"service":"dpal-backend"` on `/health`). No trailing slash. Do **not** point at legacy **`dpal-ai-server`** MongoDB-only hosts unless you know you still need them.
 
 ```bash
 # 4. Redeploy so the new env is used
@@ -42,4 +44,6 @@ vercel --prod
 
 ---
 
-After this, production and dev both use the same Railway backend + MongoDB.
+After this, production uses the same **`backend/`** API as local dev (Prisma + Express). `vercel.json` also rewrites same-origin `/api/*` to that host when the SPA uses relative API paths.
+
+Redeploy **`backend/`** on Railway after pulling changes so routes like `/api/deepal/chat` exist in production.

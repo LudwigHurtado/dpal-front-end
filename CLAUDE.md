@@ -4,6 +4,19 @@ Last updated: 2026-05-10 (DPAL Navigator + Visible Autopilot; FloodGuard doc ind
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
+### Terminology (read first)
+
+| Term | Meaning |
+|------|---------|
+| **DPAL** | **Decentralized Public Accountability Ledger** — spelled **D-P-A-L**, never “Deepal.” |
+| **Repo `backend/`** | Express + Prisma API in this monorepo (`service: "dpal-backend"` on `/health`). This is what **`VITE_API_BASE`** should target. |
+| **Production API host** | Example: `https://web-production-a27b.up.railway.app` — deployed **`backend/`** from this repo when `/health` returns `dpal-backend`. |
+| **`dpal-reviewer-node`** | Separate Verifier / Reviewer API (`/api/reviewer/v1/*`). **Not** `VITE_API_BASE`. |
+| **`LudwigHurtado/dpal-ai-server`** | **Legacy** external MongoDB filing repo name. Do **not** call production API a “Deepal AI server.” Prefer “repo `backend/`” or “DPAL API host.” |
+| **`/api/deepal/*` in code** | URL prefix for **DPAL Assistant** chat/voice routes on repo `backend/` — not a separate product server. |
+
+Deprecated env: **`VITE_DPAL_AI_SERVER_URL`** — use **`VITE_API_BASE`** or **`VITE_DPAL_API_BASE_URL`** only.
+
 ---
 
 ## What This Repo Is
@@ -20,8 +33,8 @@ This file summarizes how the **dpal-front-end** app is built, how it talks to ba
 | Piece | URL / note |
 |--------|------------|
 | Front-end (this repo) | `https://dpal-front-end.vercel.app` (example; confirm in Vercel) |
-| **API base (Railway)** | `https://web-production-a27b.up.railway.app` |
-| Health check | `GET {API_BASE}/health` |
+| **API base (repo `backend/` on Railway)** | `https://web-production-a27b.up.railway.app` (confirm `/health` → `"service":"dpal-backend"`) |
+| Health check | `GET {API_BASE}/health` → `dpal-backend` |
 | Reports feed (dashboards) | `GET {API_BASE}/api/reports/feed` |
 | Enterprise dashboard | `https://dpal-enterprise-dashboard.vercel.app` — uses `NEXT_PUBLIC_DPAL_API_BASE` |
 | Nexus console | `https://dpal-nexus-console-vercel.vercel.app` — same API base pattern |
@@ -168,7 +181,8 @@ See **`vite-env.d.ts`** for the full typed list.
 
 To make local dev behave like production, use the same backend and AI path:
 
-- Set `.env.local` `VITE_API_BASE=https://web-production-a27b.up.railway.app`
+- Local: run `backend/` on port 3001; optional `VITE_API_BASE=http://127.0.0.1:3001`
+- Production parity: `VITE_API_BASE` = deployed **`backend/`** origin (`/health` → `dpal-backend`)
 - Set `.env.local` `VITE_USE_SERVER_AI=true`
 - Prefer backend keys on Railway (`GEMINI_API_KEY`) instead of browser-exposed client keys
 - Restart Vite after env changes
@@ -184,34 +198,15 @@ To make local dev behave like production, use the same backend and AI path:
 
 ## Backend Landscape (Important Distinction)
 
-**Verifier / Reviewer:** The HTTP server for **`/api/reviewer/v1/*`** is **`dpal-reviewer-node`** (Railway, **`server/index.mjs`**). It uses **`DPAL_UPSTREAM_URL`** to read reports from the **main filing API**. It is **incorrect** to describe **`dpal-ai-server`** (or the filing API deployment) as the “Verifier UI backend” — that phrase refers to **`dpal-reviewer-node`**. See **[DPAL Verifier / Reviewer Node](#dpal-verifier--reviewer-node-production-architecture)**.
+**Verifier / Reviewer:** **`/api/reviewer/v1/*`** → **`dpal-reviewer-node`** only. Never point the Verifier UI at **`VITE_API_BASE`**. See **[DPAL Verifier / Reviewer Node](#dpal-verifier--reviewer-node-production-architecture)**.
 
-1. **Production / main app API (Railway)**  
-   - URL: **`VITE_API_BASE`** → typically `https://web-production-a27b.up.railway.app`.  
-   - Described in code as **MongoDB**-backed for reports, NFT, escrow, AI routes, etc.  
-   - **`constants.ts` → `API_ROUTES`** documents expected paths: `/api/reports`, `/api/ai/ask`, **`/api/ai/gemini`**, **`/api/ai/status`**, `/api/nft/*`, `/api/escrow/*`, `/api/beacons`, etc.  
-   - **Upstream for Reviewer Node only:** this service supplies **`/api/reports/feed`** and **`/api/reports/:reportId`** to **`dpal-reviewer-node`**; the SPA’s **`VITE_API_BASE`** and the Verifier’s **`VITE_API_BASE_URL`** are **different** concerns.
+**SPA + most modules:** **`VITE_API_BASE`** → repo **`backend/`** (Express + Prisma, `service: "dpal-backend"`). Local: `http://127.0.0.1:3001` or unset + Vite `/api` proxy. Production example: `https://web-production-a27b.up.railway.app` when that host serves this repo’s `backend/`.
 
-2. **Repo folder `backend/`** (Express + **Prisma**)  
-   - Separate **local / auxiliary** service: help-center style **`/api/help-reports`**, **`/api/admin/*`**, plus optional **`GET /api/ai/status`** + **`POST /api/ai/gemini`** (`routes/geminiProxy.ts`) for local server-AI testing.  
-   - **Boot/runtime:** Some routes import Supabase helpers — Railway/deploy needs **`SUPABASE_URL`** and **`SUPABASE_SERVICE_ROLE_KEY`** (Dashboard → Settings → API → **service_role** / secret key), plus **`DATABASE_URL`** / Prisma vars as configured. Not required for Vercel SPA-only builds.  
-   - **Earth Observation:** **`POST /api/earth-observation/scan`** — Landsat Collection 2 Level-2 via Microsoft Planetary Computer STAC + item statistics (`backend/src/services/earthObservationService.ts`); before/after scene selection inside the requested window; structured JSON with `signalStatus`, risk, metrics (NDVI/NBR/NDMI/NDWI deltas where computed), `limitations`, `recommendedActions`. **`verified`** only when enough computed metrics meet confidence rules; otherwise **`partially_verified`** or other statuses — metrics are **scene-level screening** (Planetary Computer item statistics), not zonal AOI averages unless extended later.  
-   - **DPAL Assistant (project workflow guide):** **`POST /api/dpal-assistant/project-guide`** — rule-based steps + **`claimSafety`**; optional Gemini enrichment when **`GEMINI_API_KEY`** is set on the server (`backend/src/routes/dpalAssistant.ts`). Persists client-side workflow state via components under **`components/dpal-assistant/`** (e.g. **`DpalProjectGuide`**, **`projectGuides.ts`**, **`claimSafety`**).  
-   - **EIAS (Emissions Integrity Audit System):** **`/api/emissions-audit/*`** — Prisma models `EmissionsAudit` / `EmissionsAuditVersion`, JWT auth via **`requireDpalAuth`** (`backend/src/routes/emissionsAudit.ts`). Audits are tied to **`DpalUser`** in this DB, **not** MongoDB Railway users.  
-   - Plus **legacy-compatible** `GET /api/reports` and `GET /api/reports/feed` from Prisma `helpReport` for enterprise dashboard probes.  
-   - Default port **3001** (`backend/src/index.ts`).  
-   - **Not** the same deployment as production **`dpal-ai-server`** on Railway unless you point **`VITE_API_BASE`** here — do not assume all `API_ROUTES` exist in this folder. **Earth Observation + DPAL Assistant routes must exist on whatever host `VITE_API_BASE` points to** (often Railway); mirror the same routes there or proxy to this service for the SPA to succeed.
+Implemented in **`backend/src/index.ts`** (non-exhaustive): **`/api/ai/*`** (Gemini proxy), **`/api/dpal-assistant/*`**, **`/api/deepal/*`** (DPAL Assistant chat + voice), Earth Observation, Copernicus, water, carbon, ecology, DMRV, FloodGuard, emissions-audit, help-reports, auth (`DpalUser` JWT), legacy-compatible **`/api/reports/feed`**.
 
-3. **`dpal-ai-server`** (separate GitHub repo, **not** this tree) — **main filing API implementation (legacy name in docs)**  
-   - **`LudwigHurtado/dpal-ai-server`** — common deployment behind **`https://web-production-a27b.up.railway.app`** (**`VITE_API_BASE`**).  
-   - Implements **`/api/ai/ask`**, **`/api/ai/health`**, **`/api/ai/status`**, **`/api/ai/gemini`**, NFT, persona, reports, situation room uploads, carbon MRV, offsets, **water monitor**, **ecology**, etc.  
-   - **Does not** implement the Verifier’s **`/api/reviewer/v1/*`** surface; those routes are on **`dpal-reviewer-node`**.
-   - **Water Monitor routes** (`/api/water/*`) added in `src/routes/water.routes.ts` — registered in `src/index.ts`. Models in `src/models/Water*.ts`. Satellite adapters in `src/services/adapters/*.adapter.ts`.
-   - **Carbon MRV routes** (`/api/carbon/*`) in `src/routes/carbon.routes.ts`.
-   - **Offsets routes** (`/api/offsets/*`) in `src/routes/offsets.routes.ts`.
-   - **Ecology routes** (`/api/ecology/*`) in `src/routes/ecology.routes.ts` — Landsat 9 foliage scan via Microsoft Planetary Computer STAC. Adapter: `src/services/adapters/landsatEcology.adapter.ts`.
+**Legacy external repo `LudwigHurtado/dpal-ai-server`:** Older **MongoDB** filing API (NFT, some hero/report flows). Do **not** document it as “Deepal AI server” or as today’s default API. Some routes may still exist only there until ported; confirm with `/health` (`dpal-backend` = this repo’s backend).
 
-When debugging “API issues,” confirm whether the app is pointed at Railway **main filing API** vs local `3001` Prisma backend — and whether the issue is **Reviewer Node** (**`dpal-reviewer-node`**) vs **filing API** (**`VITE_API_BASE`**).
+When debugging API issues: (1) **`GET {VITE_API_BASE}/health`** — expect `dpal-backend`; (2) Reviewer vs filing — **`dpal-reviewer-node`** vs **`VITE_API_BASE`**; (3) avoid **`VITE_DPAL_AI_SERVER_URL`**.
 
 ---
 

@@ -1,6 +1,12 @@
 # DPAL Front-End
 
-Vite 6 + React 19 + TypeScript SPA: the main DPAL citizen-reporting and environmental monitoring platform. Deployed on **Vercel**; most features call the **main DPAL filing API** on Railway (`VITE_API_BASE`, commonly `https://web-production-a27b.up.railway.app`). That filing stack is sometimes referred to by repo name **`dpal-ai-server`** — it is **not** the backend for the **Verifier UI** or **`/api/reviewer/v1/*`** routes. Those use **`dpal-reviewer-node`** ([Verifier / Reviewer Node](#dpal-verifier--reviewer-node-production-architecture)).
+**DPAL** = **Decentralized Public Accountability Ledger** (spelled **D-P-A-L**, not “Deepal”).
+
+Vite 6 + React 19 + TypeScript SPA: the main DPAL citizen-reporting and environmental monitoring platform. Deployed on **Vercel**. API calls go to the repo **`backend/`** service (Express + Prisma, health `service: "dpal-backend"`), configured with **`VITE_API_BASE`** (local: `http://127.0.0.1:3001` or unset + Vite `/api` proxy).
+
+Production example host: `https://web-production-a27b.up.railway.app` — this is the **deployed `backend/` from this repo**, not a separate “Deepal AI server.” The old GitHub name **`LudwigHurtado/dpal-ai-server`** is legacy MongoDB filing code; do **not** use that name in new setup docs.
+
+**Verifier UI** and **`/api/reviewer/v1/*`** use **`dpal-reviewer-node`** only ([Verifier / Reviewer Node](#dpal-verifier--reviewer-node-production-architecture)).
 
 ---
 
@@ -12,13 +18,20 @@ npm install
 npm run dev
 ```
 
-Use the same API host locally as production:
+**Local (recommended):** run the repo backend, then the SPA (Vite proxies `/api` → port 3001 when `VITE_API_BASE` is unset):
 
 ```bash
-# .env.local
-VITE_API_BASE=https://web-production-a27b.up.railway.app
+cd backend && npm install && npm run dev   # terminal 1 — port 3001
+cd .. && npm run dev                       # terminal 2 — port 3000
+```
+
+```bash
+# .env.local (optional explicit base)
+VITE_API_BASE=http://127.0.0.1:3001
 VITE_USE_SERVER_AI=true
 ```
+
+**Production parity:** set `VITE_API_BASE` to your deployed **`backend/`** origin (same Railway service that returns `service: "dpal-backend"` on `/health`), plus `VITE_USE_SERVER_AI=true` and `GEMINI_API_KEY` on that host.
 
 Build for production:
 
@@ -70,7 +83,8 @@ All Vite-exposed variables must start with `VITE_`. Copy `.env.example` to `.env
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `VITE_API_BASE` | Yes | Railway backend origin, e.g. `https://web-production-a27b.up.railway.app` |
+| `VITE_API_BASE` | Prod: yes | Repo **`backend/`** origin (no trailing slash). Local: optional — unset uses Vite proxy to `http://127.0.0.1:3001`. |
+| `VITE_DPAL_API_BASE_URL` | Optional | Same as `VITE_API_BASE` (preferred name in some modules). |
 | `VITE_GEMINI_API_KEY` | Optional* | Client-side Gemini key; exposed in the bundle, so prefer server AI for production |
 | `VITE_USE_SERVER_AI` | Optional* | `true` sends AI through `POST /api/ai/gemini` on the backend |
 | `VITE_OPENAI_API_KEY` | Optional | Politician Transparency query refinement and evidence drafting |
@@ -109,7 +123,7 @@ Backend-only satellite credentials live on Railway, not in Vercel:
 
 After changing Railway variables, redeploy or restart the backend service.
 
-**API routes this SPA expects on `VITE_API_BASE`:** Among others, **`POST /api/earth-observation/scan`** and **`POST /api/dpal-assistant/project-guide`** are implemented in this repo under **`backend/src/routes/`** and must be deployed on whatever backend you point the front-end at (often the same Railway service as `dpal-ai-server`), or proxied there.
+**API routes this SPA expects on `VITE_API_BASE`:** Implemented under **`backend/src/routes/`** in this repo (Earth Observation, DPAL Assistant, Copernicus, DMRV, `/api/deepal/*` assistant chat, etc.). Deploy **`backend/`** and point `VITE_API_BASE` at that host — do not assume a separate “Deepal” or legacy **`dpal-ai-server`** repo unless you still need Mongo-only filing routes.
 
 **Public API integration adapters:** Client modules (for example **`src/services/dpalIntegrationsApi.ts`**) call integration-style routes such as **`/api/integrations/*`**. Those routes may be deployed on a **different** host or rollout than core **`VITE_API_BASE`** paths — confirm which backend exposes each route before assuming one Railway URL satisfies every adapter.
 
@@ -464,7 +478,7 @@ Good Wheels module docs live at `src/good-wheels/README.md`.
 | `/ledger` | Public Blockchain Ledger |
 | `/help` | Help Center |
 | `/floodguard` | **FloodGuard** flood intelligence dashboard — see [FloodGuard documentation (index)](#floodguard-documentation-index); companion docs in `docs/FLOODGUARD_*.md` |
-| `/login` `/signup` | Auth (MongoDB users on `dpal-ai-server`) |
+| `/login` `/signup` | Auth (`DpalUser` on repo `backend/` Prisma DB) |
 | `/emissions-integrity-audit` | **EIAS** — emissions integrity audit (facility intake, scope, ADI, production unit for intensity); carbon adapter reads use Railway; server save needs `/api/emissions-audit/*` (see `CLAUDE.md`); workspace also **auto-saves in the browser** (`dpal_eias_workspace_v1`) |
 
 ---
@@ -501,7 +515,7 @@ Good Wheels module docs live at `src/good-wheels/README.md`.
 
 ### Related backend (repo `backend/`)
 
-Help-center and auth paths may require **`SUPABASE_URL`** and **`SUPABASE_SERVICE_ROLE_KEY`** so the Node process can boot; this is separate from MongoDB on `dpal-ai-server`. Point **`VITE_API_BASE`** at whichever host actually exposes **`/api/copernicus/*`** and **`/api/water/*`** for your deployment.
+Help-center paths may require **`SUPABASE_URL`** and **`SUPABASE_SERVICE_ROLE_KEY`** on repo **`backend/`**. Point **`VITE_API_BASE`** at the deployed **`backend/`** host that exposes **`/api/copernicus/*`**, **`/api/water/*`**, etc.
 
 ### Files (anchors)
 
@@ -516,7 +530,7 @@ Help-center and auth paths may require **`SUPABASE_URL`** and **`SUPABASE_SERVIC
 - Workspace draft persistence: EIAS restores and autosaves local state using `dpal_eias_workspace_v1`.
 - Production normalization: EIAS now tracks an explicit production `outputUnit` for intensity framing in audit payloads.
 - API split remains important:
-  - `/api/carbon/*` can be read from Railway `dpal-ai-server`
+  - `/api/carbon/*` reads from repo **`backend/`** when `VITE_API_BASE` points there
   - `/api/emissions-audit/*` persistence is implemented in this repo's Prisma backend and expects its `DpalUser` JWT auth unless ported.
 
 ---
@@ -681,7 +695,7 @@ Demo / offline mode: the Carbon Credit Market and Ecological Conservation both f
 
 | Repo | Purpose |
 |------|---------|
-| `LudwigHurtado/dpal-ai-server` | Typical implementation of the **main DPAL filing API** on Railway (MongoDB, Gemini, satellite adapters). **Legacy / imprecise wording** if described as the “Verifier” or “Reviewer Node” backend — those routes live on **`dpal-reviewer-node`**. |
+| `LudwigHurtado/dpal-ai-server` | **Legacy** external MongoDB filing repo — superseded for most routes by **`backend/`** in this monorepo (`dpal-backend` on `/health`). Not the Verifier backend (**`dpal-reviewer-node`**). |
 | `dpal-enterprise-dashboard` | Next.js enterprise view |
 | `dpal-nexus-console-vercel` | Next.js Nexus console |
 | `LudwigHurtado/dpal-reviewer-node` | **Verifier UI + Reviewer Express API** (`server/index.mjs`). Production API: `https://dpal-reviewer-node-production.up.railway.app/api/reviewer/v1`. Upstream reports: **`DPAL_UPSTREAM_URL`**. |
@@ -692,7 +706,7 @@ Demo / offline mode: the Carbon Credit Market and Ecological Conservation both f
 
 Push to `main` and Vercel auto-deploys. After updating env vars in the Vercel dashboard, trigger a manual redeploy.
 
-For the Railway backend, push to `main` in `dpal-ai-server` and Railway auto-deploys. Smoke check:
+For the Railway API, deploy **`backend/`** from this repo (or your CI target) and redeploy. Smoke check:
 
 ```text
 GET https://web-production-a27b.up.railway.app/health
