@@ -9,13 +9,13 @@ import type { HyperspectralPlasticScanResponse, PlasticEvidencePacketResponse } 
 import { buildPlasticWatchReportBrief, briefToPromptContext } from '../utils/plasticWatchReportBrief';
 
 const DEFAULT_MESSAGE =
-  'Start by choosing the plastic mission type. Then draw the area you want DPAL to scan. I will recommend the satellite stack, explain scan readiness, and help you generate an evidence packet.';
+  'Start by choosing the plastic mission type. Click the map to set a scan circle, or draw a polygon for irregular areas. I will recommend the satellite stack, explain scan readiness, and help you generate an evidence packet.';
 
 type Props = {
   missionTypeId: PlasticMissionTypeId;
   scan: HyperspectralPlasticScanResponse | null;
   evidence: PlasticEvidencePacketResponse | null;
-  hasSavedAoi: boolean;
+  canRunScan: boolean;
 };
 
 const QUICK_ACTIONS: { id: string; label: string; prompt: string }[] = [
@@ -27,7 +27,7 @@ const QUICK_ACTIONS: { id: string; label: string; prompt: string }[] = [
   { id: 'field', label: 'Generate field validation checklist', prompt: 'List field validation steps needed before any plastic attribution claim.' },
 ];
 
-export function PlasticAiHelperPanel({ missionTypeId, scan, evidence, hasSavedAoi }: Props): React.ReactElement {
+export function PlasticAiHelperPanel({ missionTypeId, scan, evidence, canRunScan }: Props): React.ReactElement {
   const mission = getPlasticMissionType(missionTypeId);
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
   const [busy, setBusy] = useState(false);
@@ -38,11 +38,11 @@ export function PlasticAiHelperPanel({ missionTypeId, scan, evidence, hasSavedAo
     async (userPrompt: string) => {
       const context = scan
         ? briefToPromptContext(buildPlasticWatchReportBrief(scan, evidence))
-        : `Mission: ${mission.title}. AOI saved: ${hasSavedAoi}. ${mission.helperFocus}`;
+        : `Mission: ${mission.title}. AOI ready: ${canRunScan}. ${mission.helperFocus}`;
 
       if (!isAiEnabled()) {
         setMessage(
-          `${mission.helperFocus} ${hasSavedAoi ? 'AOI is saved — check satellite readiness, then run scan.' : 'Draw and save a polygon on the map first.'} AI enrichment requires VITE_USE_SERVER_AI or VITE_GEMINI_API_KEY.`,
+          `${mission.helperFocus} ${canRunScan ? 'AOI is ready — check satellite readiness, then run scan.' : 'Click the map to set a scan area, or draw a polygon on the map first.'} AI enrichment requires VITE_USE_SERVER_AI or VITE_GEMINI_API_KEY.`,
         );
         return;
       }
@@ -61,7 +61,7 @@ export function PlasticAiHelperPanel({ missionTypeId, scan, evidence, hasSavedAo
         setBusy(false);
       }
     },
-    [evidence, hasSavedAoi, mission.helperFocus, mission.title, scan, voice],
+    [canRunScan, evidence, mission.helperFocus, mission.title, scan, voice],
   );
 
   React.useEffect(() => {

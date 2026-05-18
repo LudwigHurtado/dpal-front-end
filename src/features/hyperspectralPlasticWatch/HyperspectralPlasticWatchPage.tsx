@@ -55,6 +55,8 @@ import { getPlasticMissionType } from './data/plasticMissionTypes';
 import {
   computeBoundingRadiusKm,
   computePolygonCentroid,
+  hasPolygonAoi,
+  hasScanReadyAoi,
   parseManualPolygonJson,
   toPolygonGeoJSON,
   type LatLngPoint,
@@ -397,14 +399,19 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   const [showPageExplainer, setShowPageExplainer] = useState(false);
   const [activeWorkflowStep, setActiveWorkflowStep] = useState<string | null>(null);
 
-  const hasSavedAoi = savedPolygonPoints.length >= 3;
+  const hasSavedPolygon = hasPolygonAoi(savedPolygonPoints);
+  const canRunScan = hasScanReadyAoi({
+    center,
+    radiusKm,
+    savedPolygonPoints,
+  });
   const polygonCentroid = useMemo(
     () => computePolygonCentroid(savedPolygonPoints) ?? center,
     [savedPolygonPoints, center],
   );
   const effectiveRadiusKm = useMemo(
-    () => (hasSavedAoi ? computeBoundingRadiusKm(savedPolygonPoints) : radiusKm),
-    [hasSavedAoi, radiusKm, savedPolygonPoints],
+    () => (hasSavedPolygon ? computeBoundingRadiusKm(savedPolygonPoints) : radiusKm),
+    [hasSavedPolygon, radiusKm, savedPolygonPoints],
   );
 
   const watchRunIdRef = useRef(0);
@@ -616,6 +623,14 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     clearHyperspectralPlasticScanCache();
   }, []);
 
+  const handleRadiusKmChange = useCallback((km: number) => {
+    setRadiusKm(km);
+    setLastScan(null);
+    setEvidence(null);
+    setCacheNotice(null);
+    clearHyperspectralPlasticScanCache();
+  }, []);
+
   const applyPreset = useCallback(
     (pid: PresetId) => {
       setActivePreset(pid);
@@ -638,7 +653,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   };
 
   const scanParams = useMemo(() => {
-    const geo = hasSavedAoi ? toPolygonGeoJSON(savedPolygonPoints) : null;
+    const geo = hasSavedPolygon ? toPolygonGeoJSON(savedPolygonPoints) : null;
     return {
       lat: polygonCentroid.lat,
       lng: polygonCentroid.lng,
@@ -648,7 +663,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       currentDate: currentDay,
       environmentType,
       quickPreset: mapQuickPresetToApi(activePreset),
-      polygon: hasSavedAoi ? savedPolygonPoints.map((p) => [p.lng, p.lat]) : null,
+      polygon: hasSavedPolygon ? savedPolygonPoints.map((p) => [p.lng, p.lat]) : null,
       aoiGeoJson: geo,
     };
   }, [
@@ -657,7 +672,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     currentDay,
     effectiveRadiusKm,
     environmentType,
-    hasSavedAoi,
+    hasSavedPolygon,
     label,
     polygonCentroid.lat,
     polygonCentroid.lng,
@@ -668,6 +683,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     () =>
       computeMissionWorkflowSteps({
         missionTypeSelected: true,
+        center,
+        radiusKm,
         savedPolygon: savedPolygonPoints,
         drawingPolygon,
         providerStatus,
@@ -678,6 +695,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         lastError,
       }),
     [
+      center,
+      radiusKm,
       savedPolygonPoints,
       drawingPolygon,
       providerStatus,
@@ -695,8 +714,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   );
 
   const runManualScan = useCallback(async () => {
-    if (!hasSavedAoi) {
-      setLastError('Save a valid AOI polygon (at least 3 points) before running a scan.');
+    if (!canRunScan) {
+      setLastError('Set a map location and scan radius, or save a polygon AOI (≥3 points), before running a scan.');
       return;
     }
     setLastError(null);
@@ -715,11 +734,11 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       if ((e as Error).name === 'AbortError') return;
       setLastError(msg);
     }
-  }, [hasSavedAoi, scanParams]);
+  }, [canRunScan, scanParams]);
 
   const executeWatch = useCallback(async () => {
-    if (!hasSavedAoi) {
-      setLastError('Save a valid AOI polygon (at least 3 points) before Watch DPAL Work.');
+    if (!canRunScan) {
+      setLastError('Set a map location and scan radius, or save a polygon AOI (≥3 points), before Watch DPAL Work.');
       return;
     }
     if (!baselineIso || !currentIso) {
@@ -907,7 +926,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         abortRef.current = null;
       }
     }
-  }, [baselineIso, center.lat, center.lng, currentIso, environmentType, hasSavedAoi, label, patchStep, pushLog, radiusKm, resetSteps, scanParams]);
+  }, [baselineIso, center.lat, center.lng, canRunScan, currentIso, environmentType, label, patchStep, pushLog, radiusKm, resetSteps, scanParams]);
 
   useEffect(() => {
     const mission = getPlasticMissionType(missionTypeId);
@@ -1159,6 +1178,24 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         </div>
       ) : null}
 
+      <div className="mx-auto max-w-[1920px] space-y-3 px-4 pt-2">
+        <PlasticMissionHero
+          onStartMission={() => {
+            setDrawingPolygon(true);
+            setPolygonDraftPoints([]);
+            setShowPageExplainer(false);
+          }}
+          onDrawArea={() => {
+            setDrawingPolygon(true);
+            setPolygonDraftPoints([]);
+          }}
+          onLoadDemo={() => loadDemoMission()}
+          onExplainPage={() => setShowPageExplainer(true)}
+        />
+        <PlasticWatchValueStrip />
+        {showPageExplainer ? <PlasticPageExplainer /> : null}
+      </div>
+
       <div className="mx-auto grid w-full max-w-[1920px] flex-1 grid-cols-1 gap-4 px-4 py-3 xl:grid-cols-12">
         <aside className="space-y-3 xl:col-span-3">
           <PlasticMissionStepper
@@ -1176,7 +1213,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
             onApplyPreset={applyPreset}
           />
           <MissionScanActions
-            hasSavedAoi={hasSavedAoi}
+            canRunScan={canRunScan}
+            hasSavedPolygon={hasSavedPolygon}
             isRunning={isRunning}
             droneBusy={droneBusy}
             onWatch={() => void executeWatch()}
@@ -1190,7 +1228,9 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         <main className="min-w-0 space-y-3 xl:col-span-6">
           <PlasticAoiMapPanel
             center={center}
-            onCenterChange={setCenter}
+            radiusKm={radiusKm}
+            onRadiusKmChange={handleRadiusKmChange}
+            onCenterChange={handleMapPick}
             layers={layers}
             onLayersChange={setLayers}
             drawingPolygon={drawingPolygon}
@@ -1210,7 +1250,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
             onManualPolygonJsonChange={setManualPolygonJson}
             manualPolygonError={manualPolygonError}
             onApplyManualPolygon={applyManualPolygon}
-            scanDisabled={!hasSavedAoi || isRunning}
+            scanDisabled={!canRunScan || isRunning}
             scanBusy={isRunning}
             onRunScan={() => void runManualScan()}
             layoutKey={leafletLayoutKey}
@@ -1223,7 +1263,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
           />
           <PlasticSatelliteReadinessPanel
             missionTypeId={missionTypeId}
-            hasSavedAoi={hasSavedAoi}
+            canRunScan={canRunScan}
+            hasSavedPolygon={hasSavedPolygon}
             baselineDay={baselineDay}
             currentDay={currentDay}
             providerStatus={providerStatus}
@@ -1250,28 +1291,10 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
             missionTypeId={missionTypeId}
             scan={lastScan}
             evidence={evidence}
-            hasSavedAoi={hasSavedAoi}
+            canRunScan={canRunScan}
           />
           <PlasticWatchChatPanel scan={lastScan} evidence={evidence} aoiLabel={label || undefined} />
         </aside>
-      </div>
-
-      <div className="mx-auto max-w-[1920px] space-y-3 px-4 pb-2 pt-2">
-        <PlasticMissionHero
-          onStartMission={() => {
-            setDrawingPolygon(true);
-            setPolygonDraftPoints([]);
-            setShowPageExplainer(false);
-          }}
-          onDrawArea={() => {
-            setDrawingPolygon(true);
-            setPolygonDraftPoints([]);
-          }}
-          onLoadDemo={() => loadDemoMission()}
-          onExplainPage={() => setShowPageExplainer(true)}
-        />
-        <PlasticWatchValueStrip />
-        {showPageExplainer ? <PlasticPageExplainer /> : null}
       </div>
 
       <EnvironmentalDisclaimerBar tone="amber">
@@ -1366,7 +1389,8 @@ function motionDateGrid({ children }: { children: React.ReactNode }) {
 }
 
 function MissionScanActions({
-  hasSavedAoi,
+  canRunScan,
+  hasSavedPolygon,
   isRunning,
   droneBusy,
   onWatch,
@@ -1374,7 +1398,8 @@ function MissionScanActions({
   onDrone,
   dronePrepare,
 }: {
-  hasSavedAoi: boolean;
+  canRunScan: boolean;
+  hasSavedPolygon: boolean;
   isRunning: boolean;
   droneBusy: boolean;
   onWatch: () => void;
@@ -1385,12 +1410,14 @@ function MissionScanActions({
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-2">
       <h3 className="text-xs font-semibold text-slate-900">Run mission</h3>
-      {!hasSavedAoi ? (
-        <p className="text-[10px] text-amber-800">Save a polygon AOI (≥3 points) before scanning.</p>
+      {!canRunScan ? (
+        <p className="text-[10px] text-amber-800">Click the map to set a scan center and radius, or draw a polygon AOI.</p>
+      ) : !hasSavedPolygon ? (
+        <p className="text-[10px] text-emerald-800">Circle AOI ready — adjust radius on the map or run scan.</p>
       ) : null}
       <button
         type="button"
-        disabled={!hasSavedAoi || isRunning}
+        disabled={!canRunScan || isRunning}
         onClick={onWatch}
         className="w-full rounded-lg bg-sky-800 py-2.5 text-sm font-semibold text-white hover:bg-sky-900 disabled:opacity-50"
       >
@@ -1398,7 +1425,7 @@ function MissionScanActions({
       </button>
       <button
         type="button"
-        disabled={!hasSavedAoi || isRunning}
+        disabled={!canRunScan || isRunning}
         onClick={onScan}
         className="w-full rounded-lg border border-slate-300 py-2 text-sm font-semibold text-sky-900 hover:bg-slate-50 disabled:opacity-50"
       >

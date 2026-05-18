@@ -3,6 +3,27 @@ export type LatLngPoint = { lat: number; lng: number };
 /** Leaflet / internal ring: [lat, lng][] */
 export type PolygonRing = [number, number][];
 
+export function isValidMapCoordinate(lat: number, lng: number): boolean {
+  return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
+
+export function isValidCircleAoi(center: { lat: number; lng: number }, radiusKm: number): boolean {
+  return isValidMapCoordinate(center.lat, center.lng) && Number.isFinite(radiusKm) && radiusKm > 0 && radiusKm <= 250;
+}
+
+export function hasPolygonAoi(points: LatLngPoint[]): boolean {
+  return points.length >= 3;
+}
+
+export function hasScanReadyAoi(input: {
+  center: { lat: number; lng: number };
+  radiusKm: number;
+  savedPolygonPoints: LatLngPoint[];
+}): boolean {
+  if (hasPolygonAoi(input.savedPolygonPoints)) return true;
+  return isValidCircleAoi(input.center, input.radiusKm);
+}
+
 export function parseManualPolygonJson(raw: string): { points: LatLngPoint[]; error?: string } {
   const trimmed = raw.trim();
   if (!trimmed) return { points: [], error: 'Paste a JSON array of [longitude, latitude] pairs.' };

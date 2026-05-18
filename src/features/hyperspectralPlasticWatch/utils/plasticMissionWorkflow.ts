@@ -1,5 +1,5 @@
 import type { HyperspectralPlasticProviderStatusResponse, HyperspectralPlasticScanResponse, PlasticEvidencePacketResponse } from '../types';
-import type { LatLngPoint } from './plasticAoiUtils';
+import { hasPolygonAoi, hasScanReadyAoi, type LatLngPoint } from './plasticAoiUtils';
 
 export type MissionWorkflowStepId =
   | 'missionType'
@@ -27,6 +27,8 @@ export type MissionWorkflowStep = {
 
 export function computeMissionWorkflowSteps(input: {
   missionTypeSelected: boolean;
+  center: { lat: number; lng: number };
+  radiusKm: number;
   savedPolygon: LatLngPoint[];
   drawingPolygon: boolean;
   providerStatus: HyperspectralPlasticProviderStatusResponse | null;
@@ -36,7 +38,12 @@ export function computeMissionWorkflowSteps(input: {
   evidence: PlasticEvidencePacketResponse | null;
   lastError: string | null;
 }): MissionWorkflowStep[] {
-  const hasAoi = input.savedPolygon.length >= 3;
+  const hasPolygon = hasPolygonAoi(input.savedPolygon);
+  const hasAoi = hasScanReadyAoi({
+    center: input.center,
+    radiusKm: input.radiusKm,
+    savedPolygonPoints: input.savedPolygon,
+  });
   const aoiStatus: MissionWorkflowStepStatus = input.drawingPolygon
     ? 'in_progress'
     : hasAoi
@@ -44,7 +51,7 @@ export function computeMissionWorkflowSteps(input: {
       : 'not_started';
 
   let readiness: MissionWorkflowStepStatus = 'not_started';
-  let readinessDetail = 'Draw a saved AOI polygon, then check provider readiness.';
+  let readinessDetail = 'Set a map center and radius, or draw a polygon AOI, then check provider readiness.';
   if (hasAoi) {
     if (input.providerStatusError) {
       readiness = 'needs_attention';
@@ -67,7 +74,7 @@ export function computeMissionWorkflowSteps(input: {
   }
 
   let scanStatus: MissionWorkflowStepStatus = 'not_started';
-  let scanDetail = 'Scan unlocks after a valid AOI polygon is saved.';
+  let scanDetail = 'Scan unlocks after a map center + radius or a saved polygon AOI.';
   if (input.isRunning) {
     scanStatus = 'in_progress';
     scanDetail = 'Plastic intelligence scan in progress…';
@@ -132,9 +139,11 @@ export function computeMissionWorkflowSteps(input: {
       id: 'locationAoi',
       title: 'Location / AOI',
       status: aoiStatus,
-      detail: hasAoi
+      detail: hasPolygon
         ? `Saved polygon — ${input.savedPolygon.length} points.`
-        : 'Draw or paste a polygon boundary on the map.',
+        : hasAoi
+          ? `Circle AOI — center ${input.center.lat.toFixed(4)}, ${input.center.lng.toFixed(4)} · ${input.radiusKm} km radius.`
+          : 'Click the map (circle) or draw/paste a polygon boundary.',
     },
     {
       id: 'satelliteReadiness',

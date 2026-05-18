@@ -4,7 +4,7 @@ const STEPS = [
   {
     n: '1',
     title: 'Set AOI',
-    body: 'Search, click the map, or enter coordinates. Circle radius defines the scan area (polygon draw coming soon).',
+    body: 'Search or click the map to set center, adjust radius, or draw a polygon for irregular coastlines.',
   },
   {
     n: '2',

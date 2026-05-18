@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
-import { MapContainer, Polygon, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { Circle, MapContainer, Polygon, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Crosshair, Layout, Maximize2, Search, Trash2 } from '../../../../components/icons';
 import type { PlasticMapLayers } from '../types';
@@ -15,6 +15,8 @@ import {
 
 type Props = {
   center: { lat: number; lng: number };
+  radiusKm: number;
+  onRadiusKmChange: (km: number) => void;
   onCenterChange: (c: { lat: number; lng: number }) => void;
   layers: PlasticMapLayers;
   onLayersChange: (layers: PlasticMapLayers) => void;
@@ -41,17 +43,23 @@ type Props = {
   layoutKey: string;
 };
 
-function MapPolygonDrawer({
-  enabled,
+function MapClickHandler({
+  drawingPolygon,
   onAddPoint,
+  onPickCenter,
 }: {
-  enabled: boolean;
+  drawingPolygon: boolean;
   onAddPoint: (p: LatLngPoint) => void;
+  onPickCenter: (p: LatLngPoint) => void;
 }) {
   useMapEvents({
     click(e) {
-      if (!enabled) return;
-      onAddPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+      const point = { lat: e.latlng.lat, lng: e.latlng.lng };
+      if (drawingPolygon) {
+        onAddPoint(point);
+        return;
+      }
+      onPickCenter(point);
     },
   });
   return null;
@@ -113,6 +121,8 @@ function LeafletMapResizeObserver({ containerRef }: { containerRef: React.RefObj
 
 export function PlasticAoiMapPanel({
   center,
+  radiusKm,
+  onRadiusKmChange,
   onCenterChange,
   layers,
   onLayersChange,
@@ -141,10 +151,12 @@ export function PlasticAoiMapPanel({
   const mapWrapRef = useRef<HTMLDivElement | null>(null);
   const mapTileHostRef = useRef<HTMLDivElement | null>(null);
 
+  const hasSavedPolygon = savedPoints.length >= 3;
   const savedRing = useMemo(
-    (): PolygonRing | null => (savedPoints.length >= 3 ? polygonRingFromPoints(savedPoints) : null),
-    [savedPoints],
+    (): PolygonRing | null => (hasSavedPolygon ? polygonRingFromPoints(savedPoints) : null),
+    [hasSavedPolygon, savedPoints],
   );
+  const showCircleAoi = layers.aoiCircle && !hasSavedPolygon;
   const draftRing = useMemo(
     (): PolygonRing | null => (draftPoints.length >= 2 ? polygonRingFromPoints(draftPoints) : null),
     [draftPoints],
@@ -193,7 +205,9 @@ export function PlasticAoiMapPanel({
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-3 py-2">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">Location &amp; scan map</h2>
-            <p className="text-[10px] text-slate-600">Layer visibility is below the map; AOI tools are under that.</p>
+            <p className="text-[10px] text-slate-600">
+              Click the map to set scan center (circle) · use Draw Polygon for a custom boundary
+            </p>
           </div>
           <button
             type="button"
@@ -228,6 +242,13 @@ export function PlasticAoiMapPanel({
                   maxZoom={20}
                 />
               ) : null}
+              {showCircleAoi ? (
+                <Circle
+                  center={[center.lat, center.lng]}
+                  radius={Math.max(0.1, radiusKm) * 1000}
+                  pathOptions={{ color: '#059669', weight: 2, fillColor: '#10b981', fillOpacity: 0.12 }}
+                />
+              ) : null}
               {savedRing ? (
                 <Polygon positions={savedRing} pathOptions={{ color: '#0369a1', weight: 3, fillOpacity: 0.15 }} />
               ) : null}
@@ -237,9 +258,10 @@ export function PlasticAoiMapPanel({
                   pathOptions={{ color: '#0ea5e9', weight: 2, dashArray: '6 4', fillOpacity: 0.08 }}
                 />
               ) : null}
-              <MapPolygonDrawer
-                enabled={drawingPolygon}
+              <MapClickHandler
+                drawingPolygon={drawingPolygon}
                 onAddPoint={(p) => onDraftPointsChange([...draftPoints, p])}
+                onPickCenter={onCenterChange}
               />
               <LeafletZoomScale />
               <MapViewSync center={center} />
@@ -247,7 +269,7 @@ export function PlasticAoiMapPanel({
               <LeafletMapResizeObserver containerRef={mapTileHostRef} />
             </MapContainer>
           </div>
-          {!drawingPolygon ? <MapCrosshairOverlay /> : null}
+          {!drawingPolygon && !hasSavedPolygon ? <MapCrosshairOverlay /> : null}
           <MapFullscreenButton onToggle={toggleFullscreen} />
         </div>
       </div>
@@ -257,8 +279,28 @@ export function PlasticAoiMapPanel({
       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
         <h3 className="text-xs font-semibold text-slate-900">AOI tools</h3>
         <p className="mt-1 text-[11px] text-slate-600">
-          Click points on the map to create your scan boundary. Finish and save before running a scan.
+          <strong>Quick scan:</strong> click the map to move the green circle, set radius below, then Run Scan.{' '}
+          <strong>Polygon:</strong> use Draw Polygon for irregular coastlines or harbors (≥3 points, then Finish).
         </p>
+
+        {!hasSavedPolygon ? (
+          <label className="mt-3 block text-[10px] font-medium text-slate-500">
+            Scan radius ({radiusKm} km)
+            <input
+              type="range"
+              min={1}
+              max={80}
+              step={1}
+              value={Math.min(80, Math.max(1, radiusKm))}
+              onChange={(e) => onRadiusKmChange(Number.parseInt(e.target.value, 10))}
+              className="mt-1 w-full accent-emerald-700"
+            />
+            <div className="mt-0.5 flex justify-between font-mono text-[9px] text-slate-500">
+              <span>1 km</span>
+              <span>80 km</span>
+            </div>
+          </label>
+        ) : null}
 
         {drawingPolygon ? (
           <div className="mt-2 rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-[11px] font-medium text-sky-950">
@@ -375,7 +417,22 @@ export function PlasticAoiMapPanel({
             </div>
           </div>
         ) : (
-          <p className="mt-2 text-[10px] text-amber-800">No saved polygon yet — draw at least 3 points and finish.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-slate-700 sm:grid-cols-3">
+            <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+              <span className="text-slate-500">Center</span>
+              <p className="font-mono font-semibold">
+                {center.lat.toFixed(4)}, {center.lng.toFixed(4)}
+              </p>
+            </div>
+            <div className="rounded-lg bg-slate-50 px-2 py-1.5">
+              <span className="text-slate-500">Radius</span>
+              <p className="font-semibold">{radiusKm} km</p>
+            </div>
+            <div className="rounded-lg bg-emerald-50 px-2 py-1.5 text-emerald-900 sm:col-span-1 col-span-2">
+              <span className="text-emerald-700">Status</span>
+              <p className="font-semibold">Circle AOI — ready to scan</p>
+            </div>
+          </div>
         )}
 
         <details className="mt-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/80 p-2">

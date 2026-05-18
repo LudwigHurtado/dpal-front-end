@@ -15,7 +15,8 @@ function toneClass(tone: ReadinessTone): string {
 
 type Props = {
   missionTypeId: PlasticMissionTypeId;
-  hasSavedAoi: boolean;
+  canRunScan: boolean;
+  hasSavedPolygon: boolean;
   baselineDay: string;
   currentDay: string;
   providerStatus: HyperspectralPlasticProviderStatusResponse | null;
@@ -25,7 +26,8 @@ type Props = {
 
 export function PlasticSatelliteReadinessPanel({
   missionTypeId,
-  hasSavedAoi,
+  canRunScan,
+  hasSavedPolygon,
   baselineDay,
   currentDay,
   providerStatus,
@@ -36,9 +38,13 @@ export function PlasticSatelliteReadinessPanel({
 
   const cards: Card[] = [
     {
-      label: 'AOI Polygon',
-      value: hasSavedAoi ? 'Saved — required met' : 'Required — not saved',
-      tone: hasSavedAoi ? 'ready' : 'needs_provider',
+      label: 'AOI',
+      value: hasSavedPolygon
+        ? 'Polygon saved'
+        : canRunScan
+          ? 'Circle AOI — ready'
+          : 'Set map center or polygon',
+      tone: canRunScan ? 'ready' : 'needs_provider',
     },
     {
       label: 'Satellite Coverage',
