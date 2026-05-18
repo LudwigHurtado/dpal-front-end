@@ -185,6 +185,7 @@ app.use('/api/cadtrust', cadTrustRouter);
 app.use('/api/climatiq', climatiqRoutes);
 app.use('/api/providers/usgs-3dep', usgs3depRoutes);
 app.use('/api/dmrv/reports', dmrvReportsRouter);
+/** MRV Super Agent — schedules, runs, notifications (see backend/docs/MRV_AGENT_CRON.md) */
 app.use('/api/mrv/projects', mrvProjectRouter);
 app.use('/api/mrv/projects/:projectId/agent', mrvAgentRouter);
 

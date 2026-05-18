@@ -45,20 +45,28 @@ export type MrvNotificationDto = {
   createdAt: string;
 };
 
+export type MrvApiFailureKind = 'not_found' | 'server_error' | 'network';
+
+export type MrvApiResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; kind: MrvApiFailureKind };
+
 function projectBase(projectId: string): string {
   return `${API_ROUTES.MRV_PROJECTS}/${encodeURIComponent(projectId)}`;
 }
 
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T | null> {
+async function fetchMrv<T>(url: string, init?: RequestInit): Promise<MrvApiResult<T>> {
   try {
     const res = await fetch(apiUrl(url), {
       ...init,
       headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
+    if (res.status === 404) return { ok: false, kind: 'not_found' };
+    if (!res.ok) return { ok: false, kind: 'server_error' };
+    const data = (await res.json()) as T;
+    return { ok: true, data };
   } catch {
-    return null;
+    return { ok: false, kind: 'network' };
   }
 }
 
@@ -66,80 +74,115 @@ export async function syncMrvProjectConfigToServer(
   projectId: string,
   config: DmrvProjectContext,
 ): Promise<boolean> {
-  const data = await fetchJson<{ ok: boolean }>(`${projectBase(projectId)}/agent/project-config`, {
+  const result = await fetchMrv<{ ok: boolean }>(`${projectBase(projectId)}/agent/project-config`, {
     method: 'PUT',
     body: JSON.stringify({ configJson: config }),
   });
-  return Boolean(data?.ok);
+  return result.ok && Boolean(result.data.ok);
 }
 
-export async function fetchMrvAgentSchedule(projectId: string): Promise<MrvAgentScheduleDto | null> {
-  const data = await fetchJson<{ ok: boolean; schedule: MrvAgentScheduleDto }>(
+export async function fetchMrvAgentSchedule(
+  projectId: string,
+): Promise<MrvApiResult<MrvAgentScheduleDto>> {
+  const result = await fetchMrv<{ ok: boolean; schedule: MrvAgentScheduleDto }>(
     `${projectBase(projectId)}/agent/schedule`,
   );
-  return data?.schedule ?? null;
+  if (!result.ok) return result;
+  if (!result.data.schedule) return { ok: false, kind: 'server_error' };
+  return { ok: true, data: result.data.schedule };
 }
 
 export async function runMrvAgentNow(
   projectId: string,
   config?: DmrvProjectContext,
-): Promise<{
-  runId: string;
-  status: string;
-  summary: Record<string, unknown>;
-  findings: Array<{
-    severity: string;
-    category: string;
-    title: string;
-    message: string;
-    label?: string;
-  }>;
-} | null> {
-  const data = await fetchJson<{
+): Promise<
+  | {
+      runId: string;
+      status: string;
+      summary: Record<string, unknown>;
+      findings: Array<{
+        severity: string;
+        category: string;
+        title: string;
+        message: string;
+        source?: string;
+      }>;
+    }
+  | { error: MrvApiFailureKind }
+> {
+  const result = await fetchMrv<{
     ok: boolean;
     runId: string;
     status: string;
     summary: Record<string, unknown>;
-    findings: Array<{ severity: string; category: string; title: string; message: string }>;
+    findings: Array<{ severity: string; category: string; title: string; message: string; source?: string }>;
   }>(`${projectBase(projectId)}/agent/run-now`, {
     method: 'POST',
     body: JSON.stringify(config ? { configJson: config } : {}),
   });
-  if (!data?.ok) return null;
+  if (!result.ok) return { error: result.kind };
+  if (!result.data.ok) return { error: 'server_error' };
   return {
-    runId: data.runId,
-    status: data.status,
-    summary: data.summary,
-    findings: data.findings ?? [],
+    runId: result.data.runId,
+    status: result.data.status,
+    summary: result.data.summary,
+    findings: result.data.findings ?? [],
   };
 }
 
-export async function fetchMrvAgentLatestReport(projectId: string): Promise<{
-  readinessScore: number | null;
-  lastRun: MrvAgentRunDto | null;
-} | null> {
-  const data = await fetchJson<{
+export async function fetchMrvAgentLatestReport(projectId: string): Promise<
+  MrvApiResult<{
+    readinessScore: number | null;
+    lastRun: MrvAgentRunDto | null;
+  }>
+> {
+  const result = await fetchMrv<{
     ok: boolean;
     report: { readinessScore: number } | null;
     lastRun: MrvAgentRunDto | null;
   }>(`${projectBase(projectId)}/agent/latest-report`);
-  if (!data?.ok) return null;
+  if (!result.ok) return result;
+  if (!result.data.ok) return { ok: false, kind: 'server_error' };
   return {
-    readinessScore: data.report?.readinessScore ?? null,
-    lastRun: data.lastRun,
+    ok: true,
+    data: {
+      readinessScore: result.data.report?.readinessScore ?? null,
+      lastRun: result.data.lastRun,
+    },
   };
 }
 
-export async function fetchMrvAgentRuns(projectId: string): Promise<MrvAgentRunDto[]> {
-  const data = await fetchJson<{ ok: boolean; runs: MrvAgentRunDto[] }>(
+export async function fetchMrvAgentRuns(
+  projectId: string,
+): Promise<MrvApiResult<MrvAgentRunDto[]>> {
+  const result = await fetchMrv<{ ok: boolean; runs: MrvAgentRunDto[] }>(
     `${projectBase(projectId)}/agent/runs`,
   );
-  return data?.runs ?? [];
+  if (!result.ok) return result;
+  if (!result.data.ok) return { ok: false, kind: 'server_error' };
+  return { ok: true, data: result.data.runs ?? [] };
 }
 
-export async function fetchMrvNotifications(projectId: string): Promise<MrvNotificationDto[]> {
-  const data = await fetchJson<{ ok: boolean; notifications: MrvNotificationDto[] }>(
+export async function fetchMrvNotifications(
+  projectId: string,
+): Promise<MrvApiResult<MrvNotificationDto[]>> {
+  const result = await fetchMrv<{ ok: boolean; notifications: MrvNotificationDto[] }>(
     `${projectBase(projectId)}/notifications`,
   );
-  return data?.notifications ?? [];
+  if (!result.ok) return result;
+  if (!result.data.ok) return { ok: false, kind: 'server_error' };
+  return { ok: true, data: result.data.notifications ?? [] };
+}
+
+export function mrvApiFailureMessage(kind: MrvApiFailureKind, endpoint?: string): string {
+  switch (kind) {
+    case 'not_found':
+      return 'Agent API route not found. Check backend route mount.';
+    case 'server_error':
+      return 'Agent backend error. Check Railway logs and Prisma tables.';
+    case 'network':
+      return 'Cannot reach backend. Check VITE_API_BASE and CORS.';
+    default:
+      return endpoint ? `Request failed: ${endpoint}` : 'Request failed';
+  }
 }

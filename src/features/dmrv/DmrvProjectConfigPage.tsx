@@ -569,9 +569,7 @@ export default function DmrvProjectConfigPage({
 
         <DmrvWorkflowProgress activeStep={0} />
 
-        {!isNew && liveProjectId ? (
-          <DmrvSuperAgentPanel projectId={liveProjectId} projectContext={ctx} />
-        ) : null}
+        {ctx ? <DmrvSuperAgentPanel projectId={liveProjectId} projectContext={ctx} /> : null}
 
         {notice ? (
           <p className="my-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700">

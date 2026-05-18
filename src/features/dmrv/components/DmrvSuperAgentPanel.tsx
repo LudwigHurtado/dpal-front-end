@@ -1,16 +1,22 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { DmrvProjectContext } from '../services/dmrvProjectContextTypes';
 import {
   fetchMrvAgentLatestReport,
   fetchMrvAgentSchedule,
   fetchMrvAgentRuns,
   fetchMrvNotifications,
+  mrvApiFailureMessage,
   runMrvAgentNow,
   syncMrvProjectConfigToServer,
   type MrvAgentFindingDto,
   type MrvAgentScheduleDto,
   type MrvNotificationDto,
 } from '../services/mrvAgentApi';
+import {
+  buildMissionTimeline,
+  timelineStatusClass,
+  type MissionTimelineStep,
+} from '../utils/mrvAgentTimeline';
 
 type Props = {
   projectId: string;
@@ -37,22 +43,48 @@ export function DmrvSuperAgentPanel({ projectId, projectContext }: Props): React
   const [notifications, setNotifications] = useState<MrvNotificationDto[]>([]);
   const [busy, setBusy] = useState(false);
   const [panelNotice, setPanelNotice] = useState<string | null>(null);
-  const [apiReachable, setApiReachable] = useState<boolean | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const hasProject = Boolean(projectId?.trim() && projectContext?.projectId?.trim());
 
   const refresh = useCallback(async () => {
-    const [sched, latest, runs, notes] = await Promise.all([
+    if (!hasProject) return;
+
+    const latestResult = await fetchMrvAgentLatestReport(projectId);
+    if (!latestResult.ok) {
+      setApiError(mrvApiFailureMessage(latestResult.kind, 'latest-report'));
+      setSchedule(null);
+      setReadinessScore(null);
+      setFindings([]);
+      setNotifications([]);
+      return;
+    }
+
+    setApiError(null);
+
+    const [schedResult, runsResult, notesResult] = await Promise.all([
       fetchMrvAgentSchedule(projectId),
-      fetchMrvAgentLatestReport(projectId),
       fetchMrvAgentRuns(projectId),
       fetchMrvNotifications(projectId),
     ]);
-    setApiReachable(sched !== null || latest !== null);
-    setSchedule(sched);
-    setReadinessScore(latest?.readinessScore ?? null);
-    const lastFindings = runs[0]?.agentFindings ?? latest?.lastRun?.agentFindings ?? [];
+
+    if (schedResult.ok) setSchedule(schedResult.data);
+    else if (schedResult.kind === 'not_found') {
+      setApiError(mrvApiFailureMessage('not_found', 'schedule'));
+    }
+
+    setReadinessScore(latestResult.data.readinessScore);
+    const lastFindings =
+      runsResult.ok && runsResult.data[0]?.agentFindings
+        ? runsResult.data[0].agentFindings
+        : latestResult.data.lastRun?.agentFindings ?? [];
     setFindings(lastFindings);
-    setNotifications(notes);
-  }, [projectId]);
+    setNotifications(notesResult.ok ? notesResult.data : []);
+
+    if (!runsResult.ok && runsResult.kind !== 'not_found') {
+      setApiError((prev) => prev ?? mrvApiFailureMessage(runsResult.kind, 'runs'));
+    }
+  }, [hasProject, projectId]);
 
   useEffect(() => {
     void refresh();
@@ -63,6 +95,8 @@ export function DmrvSuperAgentPanel({ projectId, projectContext }: Props): React
     void syncMrvProjectConfigToServer(projectId, projectContext);
   }, [projectId, projectContext]);
 
+  const timeline = useMemo(() => buildMissionTimeline(findings), [findings]);
+
   const handleRunNow = async () => {
     setBusy(true);
     setPanelNotice(null);
@@ -71,15 +105,21 @@ export function DmrvSuperAgentPanel({ projectId, projectContext }: Props): React
     }
     const result = await runMrvAgentNow(projectId, projectContext ?? undefined);
     setBusy(false);
-    if (!result) {
-      setPanelNotice(
-        'Super Agent API unavailable — ensure VITE_API_BASE points at the Prisma backend with DATABASE_URL.',
-      );
+    if ('error' in result) {
+      setPanelNotice(mrvApiFailureMessage(result.error));
       return;
     }
     setPanelNotice(`Run ${result.status} · ${result.findings.length} finding(s)`);
     void refresh();
   };
+
+  if (!hasProject) {
+    return (
+      <section className="mb-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+        Save project configuration first to enable Super Agent scheduling and mission runs.
+      </section>
+    );
+  }
 
   const agentMode = schedule?.enabled ? 'Super Agent · Scheduled' : 'Super Agent · Paused';
   const lastRunLabel = schedule?.lastRunAt
@@ -96,21 +136,43 @@ export function DmrvSuperAgentPanel({ projectId, projectContext }: Props): React
         recommendations.
       </p>
 
-      <motionGrid
-        schedule={schedule}
-        agentMode={agentMode}
-        lastRunLabel={lastRunLabel}
-        readinessScore={readinessScore}
-        apiReachable={apiReachable}
-        busy={busy}
-        onRunNow={() => void handleRunNow()}
-      />
+      {apiError ? (
+        <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-950">
+          {apiError}
+        </p>
+      ) : null}
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto]">
+        <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
+          <StatusRow label="Agent mode" value={agentMode} />
+          <StatusRow label="Wake-up schedule" value={schedule?.cronExpression ?? '0 12 * * * (UTC)'} />
+          <StatusRow label="Timezone" value={schedule?.timezone ?? 'America/La_Paz'} />
+          <StatusRow label="Last run" value={lastRunLabel} />
+          <StatusRow
+            label="Next run hint"
+            value={schedule?.nextRunHint ?? 'Daily 08:00 Bolivia (12:00 UTC on Railway cron)'}
+          />
+          <StatusRow label="Latest readiness score" value={readinessScore != null ? `${readinessScore} / 100` : '—'} />
+        </div>
+        <div className="flex flex-wrap gap-2 content-start">
+          <ActionButton
+            label={busy ? 'Running…' : 'Run Agent Now'}
+            primary
+            onClick={() => void handleRunNow()}
+            disabled={busy}
+          />
+          <ActionButton label="Pause Agent" disabled title="Placeholder — disable schedule in a future release" />
+          <ActionButton label="Edit Schedule" disabled title="Placeholder — schedule editor coming soon" />
+        </div>
+      </div>
 
       {panelNotice ? (
         <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-800">
           {panelNotice}
         </p>
       ) : null}
+
+      <MissionTimeline steps={timeline} />
 
       <p className="mt-2 text-[10px] text-slate-500">
         Railway cron: <code className="text-[10px]">npm run agent:mrv-cron</code> with schedule{' '}
@@ -123,6 +185,45 @@ export function DmrvSuperAgentPanel({ projectId, projectContext }: Props): React
         <NotificationList notifications={notifications} />
       </div>
     </section>
+  );
+}
+
+function MissionTimeline({ steps }: { steps: MissionTimelineStep[] }): React.ReactElement {
+  const hasRun = steps.some((s) => s.status !== 'Pending');
+  return (
+    <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+      <h3 className="text-[10px] font-bold uppercase text-slate-500">Agent mission timeline</h3>
+      {!hasRun ? (
+        <p className="mt-2 text-xs text-slate-500">No mission run yet — timeline fills after Run Agent Now or cron.</p>
+      ) : (
+        <ol className="mt-3 space-y-2">
+          {steps.map((step, index) => (
+            <li
+              key={step.id}
+              className={`flex gap-3 rounded-lg border px-2 py-2 text-xs ${timelineStatusClass(step.status)}`}
+            >
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/80 text-[10px] font-bold">
+                {index + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <span className="font-bold">{step.label}</span>
+                  <span className="flex flex-wrap gap-1">
+                    <span className="rounded bg-white/70 px-1.5 py-0.5 text-[9px] font-bold uppercase">
+                      {step.status}
+                    </span>
+                    <span className="rounded bg-white/70 px-1.5 py-0.5 text-[9px] font-bold uppercase">
+                      {step.sourceLabel}
+                    </span>
+                  </span>
+                </div>
+                <p className="mt-0.5 leading-snug">{step.message}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
   );
 }
 
@@ -199,7 +300,7 @@ function NotificationList({ notifications }: { notifications: MrvNotificationDto
         <p className="mt-2 text-xs text-slate-500">No alerts — ordinary successful runs do not notify.</p>
       ) : (
         <ul className="mt-2 max-h-56 space-y-2 overflow-y-auto">
-          {notifications.slice(0, 8).map((n) => (
+          {notifications.map((n) => (
             <li key={n.id} className={`rounded-lg border px-2 py-2 text-xs ${severityClass(n.severity)}`}>
               <p className="font-bold">{n.title}</p>
               <p className="mt-0.5">{n.message}</p>
@@ -208,53 +309,6 @@ function NotificationList({ notifications }: { notifications: MrvNotificationDto
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-function motionGrid(props: {
-  schedule: MrvAgentScheduleDto | null;
-  agentMode: string;
-  lastRunLabel: string;
-  readinessScore: number | null;
-  apiReachable: boolean | null;
-  busy: boolean;
-  onRunNow: () => void;
-}): React.ReactElement {
-  const {
-    schedule,
-    agentMode,
-    lastRunLabel,
-    readinessScore,
-    apiReachable,
-    busy,
-    onRunNow,
-  } = props;
-
-  return (
-    <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto]">
-      <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
-        <StatusRow label="Agent mode" value={agentMode} />
-        <StatusRow label="Wake-up schedule" value={schedule?.cronExpression ?? '0 12 * * * (UTC)'} />
-        <StatusRow label="Timezone" value={schedule?.timezone ?? 'America/La_Paz'} />
-        <StatusRow label="Last run" value={lastRunLabel} />
-        <StatusRow
-          label="Next run hint"
-          value={schedule?.nextRunHint ?? 'Daily 08:00 Bolivia (12:00 UTC on Railway cron)'}
-        />
-        <StatusRow
-          label="Latest readiness score"
-          value={readinessScore != null ? `${readinessScore} / 100` : '—'}
-        />
-        {apiReachable === false ? (
-          <p className="text-xs text-amber-800">Backend agent routes not reachable.</p>
-        ) : null}
-      </div>
-      <div className="flex flex-wrap gap-2 content-start">
-        <ActionButton label={busy ? 'Running…' : 'Run Agent Now'} primary onClick={onRunNow} disabled={busy} />
-        <ActionButton label="Pause Agent" disabled title="Placeholder — disable schedule in a future release" />
-        <ActionButton label="Edit Schedule" disabled title="Placeholder — schedule editor coming soon" />
-      </div>
     </div>
   );
 }

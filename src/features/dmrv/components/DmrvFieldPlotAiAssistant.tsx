@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, Mic, RefreshCw, Send, Sparkles, Square, X } from '../../../../components/icons';
-import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
-import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
-import { useDmrvVoiceInput } from '../hooks/useDmrvVoiceInput';
+import { Bot, RefreshCw, Sparkles } from '../../../../components/icons';
 import type { AiHelperMessage } from '../services/dmrvFieldPlotConfigTypes';
-import { sendAiGuidance } from '../../../services/dpalAiClient';
 import { dmrvRuleBasedReply, trimDmrvAiContext } from '../utils/dmrvAiRuleBasedFallback';
 import { useDpalAiMode } from '../../../shared/hooks/useDpalAiMode';
 import { AiDiagnosticsPanel } from '../../../shared/components/AiDiagnosticsPanel';
+import { DeepAlAssistantComposer } from '../../aiAssistant/components/DeepAlAssistantComposer';
+import { sendDeepAlMessage } from '../../aiAssistant/sendDeepAlMessage';
+import { sendAiGuidance } from '../../../services/dpalAiClient';
 
 export type DmrvFieldPlotAiAssistantProps = {
   contextSummary: string;
@@ -69,14 +68,6 @@ const QUICK_ACTIONS: { label: string; message: string; action?: 'fill' }[] = [
   },
 ];
 
-const VOICE_STATE_LABEL: Record<string, string> = {
-  idle: 'Ready',
-  listening: 'Listening…',
-  processing: 'Processing…',
-  ready: 'Ready',
-  unsupported: 'Voice unavailable',
-};
-
 export function DmrvFieldPlotAiAssistant({
   contextSummary,
   disabled = false,
@@ -89,15 +80,12 @@ export function DmrvFieldPlotAiAssistant({
   const { geminiLive, isChecking, configured, userFallbackMessage, refresh, ensureLiveBeforeSend } =
     useDpalAiMode();
   const [messages, setMessages] = useState<AiHelperMessage[]>([]);
-  const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const contextRef = useRef(contextSummary);
   const submitLockRef = useRef(false);
-  const voiceCompleteRef = useRef<() => void>(() => undefined);
-  const voiceAssistant = useAiVoiceAssistant();
 
   useEffect(() => {
     contextRef.current = trimDmrvAiContext(contextSummary);
@@ -108,9 +96,9 @@ export function DmrvFieldPlotAiAssistant({
   }, [messages, loading]);
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string): Promise<string | null> => {
       const trimmed = text.trim();
-      if (!trimmed || trimmed.length < 2 || loading || disabled || submitLockRef.current) return;
+      if (!trimmed || trimmed.length < 2 || loading || disabled || submitLockRef.current) return null;
 
       submitLockRef.current = true;
       const userMsg: AiHelperMessage = {
@@ -120,7 +108,6 @@ export function DmrvFieldPlotAiAssistant({
         createdAt: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, userMsg]);
-      setInputValue('');
       setLoading(true);
       setError(null);
 
@@ -128,7 +115,6 @@ export function DmrvFieldPlotAiAssistant({
 
       if (!live) {
         const offlineText = dmrvRuleBasedReply(contextRef.current, trimmed);
-        voiceAssistant.speakReply(offlineText);
         setMessages((prev) => [
           ...prev,
           {
@@ -140,49 +126,45 @@ export function DmrvFieldPlotAiAssistant({
         ]);
         setError(userFallbackMessage);
         setLoading(false);
-        voiceCompleteRef.current();
         window.setTimeout(() => {
           submitLockRef.current = false;
         }, 800);
-        return;
+        return offlineText;
       }
 
       try {
-        const prompt = buildPrompt(contextRef.current, [...messages, userMsg], trimmed);
-        const result = await sendAiGuidance({ prompt, context: contextRef.current });
-        const assistantText =
-          result.ok && result.mode === 'live'
-            ? result.text.trim() || 'No response from the assistant.'
-            : null;
-        if (assistantText) {
-          voiceAssistant.speakReply(assistantText);
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `a-${Date.now()}`,
-              role: 'assistant',
-              text: assistantText,
-              createdAt: new Date().toISOString(),
-            },
-          ]);
-        } else {
-          const fallbackText = dmrvRuleBasedReply(contextRef.current, trimmed);
-          setError(userFallbackMessage);
-          voiceAssistant.speakReply(fallbackText);
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `a-err-${Date.now()}`,
-              role: 'assistant',
-              text: `${userFallbackMessage}\n\n${fallbackText}`,
-              createdAt: new Date().toISOString(),
-            },
-          ]);
-        }
+        const history = [...messages, userMsg].map((m) => ({ role: m.role, text: m.text }));
+        const deepAl = await sendDeepAlMessage({
+          question: trimmed,
+          messages: history,
+          context: contextRef.current,
+          workspace: 'dmrv_field_plot',
+          buildLegacyPrompt: (q, hist) =>
+            buildPrompt(
+              contextRef.current,
+              hist.map((h, i) => ({
+                id: `hist-${i}`,
+                role: h.role,
+                text: h.text,
+                createdAt: new Date().toISOString(),
+              })),
+              q,
+            ),
+        });
+        const assistantText = deepAl.answer.trim() || 'No response from the assistant.';
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `a-${Date.now()}`,
+            role: 'assistant',
+            text: assistantText,
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+        return assistantText;
       } catch {
         const fallbackText = dmrvRuleBasedReply(contextRef.current, trimmed);
         setError(userFallbackMessage);
-        voiceAssistant.speakReply(fallbackText);
         setMessages((prev) => [
           ...prev,
           {
@@ -192,41 +174,39 @@ export function DmrvFieldPlotAiAssistant({
             createdAt: new Date().toISOString(),
           },
         ]);
+        return fallbackText;
       } finally {
         setLoading(false);
-        voiceCompleteRef.current();
         window.setTimeout(() => {
           submitLockRef.current = false;
         }, 800);
       }
     },
-    [disabled, ensureLiveBeforeSend, loading, messages, userFallbackMessage, voiceAssistant],
+    [disabled, ensureLiveBeforeSend, loading, messages, userFallbackMessage],
   );
-
-  const handleVoiceAutoSubmit = useCallback(
-    (transcript: string) => {
-      setInputValue(transcript);
-      void sendMessage(transcript);
-    },
-    [sendMessage],
-  );
-
-  const voice = useDmrvVoiceInput({
-    onAutoSubmit: handleVoiceAutoSubmit,
-    silenceMs: 1500,
-  });
-
-  voiceCompleteRef.current = voice.completeProcessing;
 
   const prefillHandledRef = useRef<string | null>(null);
   useEffect(() => {
     const q = prefillQuestion?.trim();
     if (!q || prefillHandledRef.current === q) return;
     prefillHandledRef.current = q;
-    setInputValue(q);
     void sendMessage(q);
     onClearPrefill?.();
   }, [prefillQuestion, onClearPrefill, sendMessage]);
+
+  const deepAlMessages = useMemo(
+    () => messages.map((m) => ({ role: m.role, text: m.text })),
+    [messages],
+  );
+
+  const appendConversationMessages = useCallback((userText: string, assistantText: string) => {
+    const now = new Date().toISOString();
+    setMessages((prev) => [
+      ...prev,
+      { id: `u-conv-${Date.now()}`, role: 'user', text: userText, createdAt: now },
+      { id: `a-conv-${Date.now()}`, role: 'assistant', text: assistantText, createdAt: now },
+    ]);
+  }, []);
 
   const runAutofill = useCallback(async () => {
     if (!autofillPrompt || !onApplyAutofill || disabled) return;
@@ -269,12 +249,6 @@ Return ONLY valid JSON — no markdown prose.`;
       setLoading(false);
     }
   }, [autofillPrompt, disabled, ensureLiveBeforeSend, onApplyAutofill, userFallbackMessage]);
-
-  const lastAssistantReply = messages.filter((m) => m.role === 'assistant').at(-1)?.text ?? null;
-
-  const displayTranscript = voice.isListening
-    ? voice.liveTranscript || 'Speak now…'
-    : inputValue;
 
   const quickButtons = useMemo(
     () =>
@@ -345,7 +319,7 @@ Return ONLY valid JSON — no markdown prose.`;
       <div className="max-h-64 min-h-[12rem] space-y-2 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/80 p-3">
         {messages.length === 0 ? (
           <p className="text-xs text-slate-500">
-            Ask about field plots, validation, or tap a quick action. Voice auto-sends after you stop speaking.
+            Ask about field plots, validation, or tap a quick action. Use Manual or Conversation mode below.
           </p>
         ) : (
           messages.map((msg) => (
@@ -384,98 +358,30 @@ Return ONLY valid JSON — no markdown prose.`;
         </p>
       ) : null}
 
-      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Voice & message</p>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-            {VOICE_STATE_LABEL[voice.state] ?? 'Ready'}
-          </span>
-        </div>
-
-        <textarea
-          readOnly={voice.isListening}
-          rows={3}
-          value={displayTranscript}
-          onChange={(e) => setInputValue(e.target.value)}
-          disabled={loading || disabled}
-          placeholder="Type a question or tap the microphone…"
-          className="w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#1e3a5f] focus:outline-none focus:ring-2 focus:ring-[#1e3a5f]/15 disabled:opacity-60"
-          aria-live="polite"
-        />
-
-        {!voice.isSupported ? (
-          <p className="mt-2 text-[11px] text-slate-500">
-            Voice input is not available in this browser. You can still type your question.
-          </p>
-        ) : null}
-
-        <div className="mt-2 flex flex-wrap gap-2">
-          {voice.isListening ? (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={voice.stopListening}
-              className="inline-flex items-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-900"
-            >
-              <Square className="h-3.5 w-3.5" aria-hidden />
-              Stop listening
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={loading || disabled || !voice.isSupported}
-              onClick={voice.startListening}
-              className="inline-flex items-center gap-1 rounded-lg border border-[#1e3a5f]/30 bg-[#e8f0f7] px-3 py-2 text-xs font-bold text-[#1e3a5f]"
-            >
-              <Mic className="h-3.5 w-3.5" aria-hidden />
-              Start voice
-            </button>
-          )}
+      {autofillPrompt && onApplyAutofill ? (
+        <div className="mt-3">
           <button
             type="button"
-            disabled={disabled}
-            onClick={() => {
-              voice.clearTranscript();
-              setInputValue('');
-            }}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+            disabled={loading || disabled}
+            onClick={() => void runAutofill()}
+            className="inline-flex items-center gap-1 rounded-lg border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900"
           >
-            <X className="h-3.5 w-3.5" aria-hidden />
-            Clear transcript
-          </button>
-          {autofillPrompt && onApplyAutofill ? (
-            <button
-              type="button"
-              disabled={loading || disabled}
-              onClick={() => void runAutofill()}
-              className="inline-flex items-center gap-1 rounded-lg border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-900"
-            >
-              <Sparkles className="h-3.5 w-3.5" aria-hidden />
-              AI suggest JSON
-            </button>
-          ) : null}
-          <button
-            type="button"
-            disabled={!inputValue.trim() || loading || disabled}
-            onClick={() => void sendMessage(inputValue)}
-            className="ml-auto inline-flex items-center gap-1 rounded-lg bg-[#1e3a5f] px-3 py-2 text-xs font-bold text-white hover:bg-[#152a47] disabled:opacity-50"
-          >
-            {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-            Send
+            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+            AI suggest JSON
           </button>
         </div>
-      </div>
+      ) : null}
 
-      <AiVoiceReplyControls
-        className="mt-2"
-        replyText={lastAssistantReply}
-        autoSpeak={voiceAssistant.autoSpeak}
-        onAutoSpeakChange={voiceAssistant.setAutoSpeak}
-        isSpeaking={voiceAssistant.isSpeaking}
-        speak={voiceAssistant.speak}
-        stopSpeaking={voiceAssistant.stopSpeaking}
-        ttsSupported={voiceAssistant.ttsSupported}
-        ttsUnsupportedMessage={voiceAssistant.ttsUnsupportedMessage}
+      <DeepAlAssistantComposer
+        className="mt-3"
+        workspace="dmrv_field_plot"
+        context={contextRef.current}
+        messages={deepAlMessages}
+        loading={loading}
+        disabled={disabled}
+        placeholder="Type a question or use voice…"
+        onAppendMessages={appendConversationMessages}
+        onManualSend={sendMessage}
       />
     </section>
   );

@@ -4,9 +4,9 @@ import { clearAiHealthCache, sendAiGuidance } from '../../../services/dpalAiClie
 import { dmrvRuleBasedReply, trimDmrvAiContext } from '../utils/dmrvAiRuleBasedFallback';
 import { useDpalAiMode } from '../../../shared/hooks/useDpalAiMode';
 import { AiDiagnosticsPanel } from '../../../shared/components/AiDiagnosticsPanel';
-import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
-import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
+import { DeepAlAssistantComposer } from '../../aiAssistant/components/DeepAlAssistantComposer';
+import { sendDeepAlMessage } from '../../aiAssistant/sendDeepAlMessage';
 
 export type DmrvAiHelperVariant = 'input' | 'project' | 'satellite-imagery' | 'lidar';
 
@@ -201,8 +201,7 @@ export function DmrvAiConfigHelper({
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const contextRef = useRef(contextSummary);
-  const voice = useAiVoiceAssistant();
-  const lastAssistantReply = messages.filter((m) => m.role === 'assistant').at(-1)?.text ?? null;
+  const workspaceVariant = variant;
 
   useEffect(() => {
     contextRef.current = trimDmrvAiContext(contextSummary);
@@ -218,9 +217,9 @@ export function DmrvAiConfigHelper({
   }, [refresh]);
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string): Promise<string | null> => {
       const trimmed = text.trim();
-      if (!trimmed || loading || disabled) return;
+      if (!trimmed || loading || disabled) return null;
 
       const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', text: trimmed };
       setMessages((prev) => [...prev, userMsg]);
@@ -232,7 +231,6 @@ export function DmrvAiConfigHelper({
 
       if (!live) {
         const offlineText = dmrvRuleBasedReply(contextRef.current, trimmed);
-        voice.speakReply(offlineText);
         setMessages((prev) => [
           ...prev,
           {
@@ -243,35 +241,31 @@ export function DmrvAiConfigHelper({
         ]);
         await markConnectionOffline();
         setLoading(false);
-        return;
+        return offlineText;
       }
 
       try {
-        const prompt = buildPrompt(contextRef.current, [...messages, userMsg], trimmed);
-        const result = await sendAiGuidance({ prompt, context: contextRef.current });
-        if (result.ok && result.mode === 'live') {
-          const assistantText = result.text.trim() || 'No response from the assistant.';
-          voice.speakReply(assistantText);
-          setMessages((prev) => [
-            ...prev,
-            { id: `a-${Date.now()}`, role: 'assistant', text: assistantText },
-          ]);
-        } else {
-          const fallbackText = dmrvRuleBasedReply(contextRef.current, trimmed);
-          voice.speakReply(fallbackText);
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `a-err-${Date.now()}`,
-              role: 'assistant',
-              text: fallbackText,
-            },
-          ]);
-          await markConnectionOffline();
-        }
+        const history = [...messages, userMsg].map((m) => ({ role: m.role, text: m.text }));
+        const deepAl = await sendDeepAlMessage({
+          question: trimmed,
+          messages: history,
+          context: contextRef.current,
+          workspace: `dmrv_config_${workspaceVariant}`,
+          buildLegacyPrompt: (q, hist) =>
+            buildPrompt(
+              contextRef.current,
+              hist.map((h, i) => ({ id: `h-${i}`, role: h.role, text: h.text })),
+              q,
+            ),
+        });
+        const assistantText = deepAl.answer.trim() || 'No response from the assistant.';
+        setMessages((prev) => [
+          ...prev,
+          { id: `a-${Date.now()}`, role: 'assistant', text: assistantText },
+        ]);
+        return assistantText;
       } catch (err) {
         const fallbackText = dmrvRuleBasedReply(contextRef.current, trimmed);
-        voice.speakReply(fallbackText);
         setMessages((prev) => [
           ...prev,
           {
@@ -282,12 +276,26 @@ export function DmrvAiConfigHelper({
         ]);
         await markConnectionOffline();
         setError(err instanceof Error ? err.message : 'Could not reach the AI service.');
+        return fallbackText;
       } finally {
         setLoading(false);
       }
     },
-    [disabled, ensureLiveBeforeSend, loading, markConnectionOffline, messages, voice],
+    [disabled, ensureLiveBeforeSend, loading, markConnectionOffline, messages, workspaceVariant],
   );
+
+  const deepAlMessages = useMemo(
+    () => messages.map((m) => ({ role: m.role, text: m.text })),
+    [messages],
+  );
+
+  const appendConversationMessages = useCallback((userText: string, assistantText: string) => {
+    setMessages((prev) => [
+      ...prev,
+      { id: `u-conv-${Date.now()}`, role: 'user', text: userText },
+      { id: `a-conv-${Date.now()}`, role: 'assistant', text: assistantText },
+    ]);
+  }, []);
 
   const runAutofill = useCallback(async () => {
     if (!autofillPrompt || !onApplyAutofill || disabled) return;
@@ -314,7 +322,6 @@ Return ONLY valid JSON — no markdown prose.`;
       const guidance = await sendAiGuidance({ prompt, context: contextRef.current });
       const raw = guidance.ok ? guidance.text : '';
       const assistantText = raw.trim() || 'No response from the assistant.';
-      voice.speakReply('Applied suggested field values. Review before saving.');
       setMessages((prev) => [
         ...prev,
         { id: `u-fill-${Date.now()}`, role: 'user', text: 'Suggest values for all fields on this form.' },
@@ -332,7 +339,7 @@ Return ONLY valid JSON — no markdown prose.`;
     } finally {
       setLoading(false);
     }
-  }, [autofillPrompt, disabled, ensureLiveBeforeSend, markConnectionOffline, onApplyAutofill, voice]);
+  }, [autofillPrompt, disabled, ensureLiveBeforeSend, markConnectionOffline, onApplyAutofill]);
 
   const copyMessage = useCallback(async (text: string) => {
     const ok = await copyText(text);
@@ -478,24 +485,15 @@ Return ONLY valid JSON — no markdown prose.`;
 
       <div className="mt-3 grid gap-2 sm:grid-cols-1">{starterButtons}</div>
 
-      <AiMessageComposer
-        inputValue={inputValue}
-        onInputChange={setInputValue}
-        onSend={sendMessage}
+      <DeepAlAssistantComposer
+        workspace={`dmrv_config_${workspaceVariant}`}
+        context={contextRef.current}
+        messages={deepAlMessages}
         loading={loading}
         disabled={disabled}
         placeholder={meta.placeholder}
-      />
-      <AiVoiceReplyControls
-        className="mt-2"
-        replyText={lastAssistantReply}
-        autoSpeak={voice.autoSpeak}
-        onAutoSpeakChange={voice.setAutoSpeak}
-        isSpeaking={voice.isSpeaking}
-        speak={voice.speak}
-        stopSpeaking={voice.stopSpeaking}
-        ttsSupported={voice.ttsSupported}
-        ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+        onAppendMessages={appendConversationMessages}
+        onManualSend={sendMessage}
       />
 
       {workspaceOpen ? (

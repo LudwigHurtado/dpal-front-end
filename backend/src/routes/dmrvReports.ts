@@ -37,11 +37,16 @@ function hashJson(value: unknown): string {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
+/** Express may type params as string | string[] — normalize for path helpers. */
+function routeParam(value: string | string[]): string {
+  return Array.isArray(value) ? String(value[0] ?? '') : String(value);
+}
+
 /** GET /api/dmrv/reports/:reportId */
 router.get('/:reportId', async (req: Request, res: Response) => {
   try {
     await ensureDir();
-    const raw = await fs.readFile(reportPath(req.params.reportId), 'utf8');
+    const raw = await fs.readFile(reportPath(routeParam(req.params.reportId)), 'utf8');
     res.json(JSON.parse(raw));
   } catch {
     res.status(404).json({ ok: false, error: 'report_not_found' });
@@ -56,7 +61,7 @@ router.put('/:reportId', async (req: Request, res: Response) => {
     if (!body || typeof body !== 'object') {
       return res.status(400).json({ ok: false, error: 'invalid_body' });
     }
-    const reportId = String(req.params.reportId);
+    const reportId = routeParam(req.params.reportId);
     const payload = { ...body, reportId, updatedAt: new Date().toISOString() };
     await fs.writeFile(reportPath(reportId), JSON.stringify(payload, null, 2), 'utf8');
     res.json({ ok: true, reportId, reportJsonHash: hashJson(payload) });
@@ -69,7 +74,7 @@ router.put('/:reportId', async (req: Request, res: Response) => {
 router.post('/:reportId/anchor', async (req: Request, res: Response) => {
   try {
     await ensureDir();
-    const reportId = String(req.params.reportId);
+    const reportId = routeParam(req.params.reportId);
     const { versionId, reportJsonHash, evidencePacketId, evidenceBundleHash } = req.body ?? {};
     if (!versionId || !reportJsonHash) {
       return res.status(400).json({ ok: false, error: 'versionId_and_reportJsonHash_required' });
