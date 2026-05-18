@@ -17,19 +17,30 @@ export type DeepAlVoiceSynthesizeResult = {
   reason?: 'not_configured' | 'empty_text' | 'provider_error';
 };
 
-function readChatterboxConfig(): { baseUrl: string; apiKey: string } | null {
+function readChatterboxConfig(): { baseUrl: string; apiKey: string; voiceId?: string } | null {
   const baseUrl = (
     process.env.CHATTERBOX_API_URL ??
+    process.env.CHATTERBOX_URL ??
+    process.env.CHATTERBOX_BASE_URL ??
     process.env.DEEPAL_CHATTERBOX_URL ??
+    process.env.DEEPAL_CHATTERBOX_API_URL ??
     ''
   ).trim().replace(/\/+$/, '');
   const apiKey = (
     process.env.CHATTERBOX_API_KEY ??
+    process.env.CHATTERBOX_KEY ??
     process.env.DEEPAL_CHATTERBOX_API_KEY ??
+    process.env.DEEPAL_CHATTERBOX_KEY ??
+    ''
+  ).trim();
+  const voiceId = (
+    process.env.CHATTERBOX_VOICE_ID ??
+    process.env.CHATTERBOX_VOICE ??
+    process.env.DEEPAL_CHATTERBOX_VOICE_ID ??
     ''
   ).trim();
   if (!baseUrl) return null;
-  return { baseUrl, apiKey };
+  return { baseUrl, apiKey, voiceId: voiceId || undefined };
 }
 
 export async function synthesizeDeepAlVoice(
@@ -68,7 +79,7 @@ export async function synthesizeDeepAlVoice(
       headers,
       body: JSON.stringify({
         text,
-        voice_id: req.voiceId ?? process.env.CHATTERBOX_VOICE_ID ?? undefined,
+        voice_id: req.voiceId ?? cfg.voiceId ?? undefined,
       }),
     });
 

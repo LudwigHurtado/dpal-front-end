@@ -10,6 +10,8 @@ router.get('/health', (_req, res) => {
     service: 'dpal-assistant',
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY?.trim()),
     chatterboxConfigured: isChatterboxConfigured(),
+    chatterboxSetup:
+      'Set CHATTERBOX_API_URL (or CHATTERBOX_URL) on the Railway backend service — not Vercel. Optional: CHATTERBOX_API_KEY, CHATTERBOX_VOICE_ID=positive.',
   });
 });
 
