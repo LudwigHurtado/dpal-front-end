@@ -1,33 +1,47 @@
 import { API_ROUTES, apiUrl } from '../../../constants';
 
-export type DeepAlVoiceSynthesizeResponse = {
-  ok: boolean;
-  audioBase64?: string;
-  contentType?: string;
-  durationMs?: number;
-  provider: string;
-  error?: string;
-  reason?: string;
+export type DeepAlVoiceSynthesizeResponse =
+  | {
+      ok: true;
+      voiceEngine: 'chatterbox';
+      audioUrl: string;
+      ttsText: string;
+      generatedAt: string;
+      contentType?: string;
+    }
+  | {
+      ok: false;
+      error: string;
+      fallback?: 'text-only';
+      message?: string;
+    };
+
+export type DeepAlVoiceSynthesizeOptions = {
+  workspace?: string;
+  module?: string;
+  conversationId?: string;
+  messageId?: string;
 };
 
 export async function postDeepAlVoiceSynthesize(
   text: string,
-  voiceId?: string,
+  options: DeepAlVoiceSynthesizeOptions = {},
 ): Promise<DeepAlVoiceSynthesizeResponse> {
   const trimmed = text.trim();
   if (!trimmed) {
     return {
       ok: false,
-      provider: 'none',
-      error: 'No text to synthesize.',
-      reason: 'empty_text',
+      error: 'VALIDATION_ERROR',
+      fallback: 'text-only',
+      message: 'No text to synthesize.',
     };
   }
 
-  const body: { text: string; voiceId?: string } = { text: trimmed };
-  const envVoiceId = import.meta.env.VITE_CHATTERBOX_VOICE_ID?.trim();
-  const resolvedVoiceId = voiceId?.trim() || envVoiceId;
-  if (resolvedVoiceId) body.voiceId = resolvedVoiceId;
+  const body: Record<string, string> = { text: trimmed };
+  if (options.workspace) body.workspace = options.workspace;
+  if (options.module) body.module = options.module;
+  if (options.conversationId) body.conversationId = options.conversationId;
+  if (options.messageId) body.messageId = options.messageId;
 
   try {
     const res = await fetch(apiUrl(API_ROUTES.DEEPAL_VOICE_SYNTHESIZE), {
@@ -40,9 +54,30 @@ export async function postDeepAlVoiceSynthesize(
   } catch (e: unknown) {
     return {
       ok: false,
-      provider: 'none',
-      error: e instanceof Error ? e.message : 'Voice synthesis request failed.',
-      reason: 'network_error',
+      error: 'VOICE_UNAVAILABLE',
+      fallback: 'text-only',
+      message: e instanceof Error ? e.message : 'Voice synthesis request failed.',
     };
   }
+}
+
+/** Resolve playable audio URL from API response (prefers audioUrl; supports legacy base64 fields). */
+export function resolveVoiceAudioUrl(data: Record<string, unknown>): string | null {
+  if (typeof data.audioUrl === 'string' && data.audioUrl.trim()) {
+    return data.audioUrl.trim();
+  }
+  const b64 =
+    typeof data.audioBase64 === 'string'
+      ? data.audioBase64
+      : typeof data.audio_base64 === 'string'
+        ? data.audio_base64
+        : null;
+  if (!b64) return null;
+  const mime =
+    typeof data.contentType === 'string'
+      ? data.contentType
+      : typeof data.content_type === 'string'
+        ? data.content_type
+        : 'audio/wav';
+  return `data:${mime};base64,${b64}`;
 }

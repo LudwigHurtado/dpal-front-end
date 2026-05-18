@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { postDeepAlVoiceSynthesize } from '../api/deepalVoiceApi';
+import { postDeepAlVoiceSynthesize, resolveVoiceAudioUrl } from '../api/deepalVoiceApi';
 
 export type UseChatterboxPlaybackOptions = {
+  workspace?: string;
+  module?: string;
   onPlaybackStart?: () => void;
   onPlaybackEnd?: () => void;
   onPlaybackError?: (message: string) => void;
@@ -42,9 +44,23 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
       setIsLoading(true);
       setLastError(null);
 
-      const result = await postDeepAlVoiceSynthesize(trimmed);
-      if (!result.ok || !result.audioBase64) {
-        const msg = result.error ?? 'Voice synthesis unavailable.';
+      const result = await postDeepAlVoiceSynthesize(trimmed, {
+        workspace: options.workspace,
+        module: options.module,
+      });
+
+      const audioUrl =
+        result.ok && result.audioUrl
+          ? result.audioUrl
+          : resolveVoiceAudioUrl(result as unknown as Record<string, unknown>);
+
+      if (!audioUrl) {
+        const msg =
+          !result.ok && result.message
+            ? result.message
+            : !result.ok
+              ? result.error
+              : 'Voice synthesis unavailable.';
         setLastError(msg);
         setIsLoading(false);
         options.onPlaybackError?.(msg);
@@ -52,15 +68,10 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
       }
 
       try {
-        const mime = result.contentType ?? 'audio/wav';
-        const binary = atob(result.audioBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-        const blob = new Blob([bytes], { type: mime });
-        const url = URL.createObjectURL(blob);
-        objectUrlRef.current = url;
-
-        const audio = new Audio(url);
+        const audio = new Audio(audioUrl);
+        if (audioUrl.startsWith('blob:')) {
+          objectUrlRef.current = audioUrl;
+        }
         audioRef.current = audio;
         audio.onplay = () => {
           setIsLoading(false);

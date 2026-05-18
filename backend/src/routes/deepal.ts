@@ -1,17 +1,21 @@
 import { Router } from 'express';
 import { runDeepAlChat } from '../services/deepalChatService';
-import { isChatterboxConfigured, synthesizeDeepAlVoice } from '../services/deepalVoiceService';
+import {
+  getChatterboxHealthStatus,
+  logChatterboxConfigStatus,
+  synthesizeDeepAlVoice,
+} from '../services/deepalVoiceService';
 
 const router = Router();
 
 router.get('/health', (_req, res) => {
+  logChatterboxConfigStatus();
+  const chatterbox = getChatterboxHealthStatus();
   res.json({
     ok: true,
     service: 'dpal-assistant',
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY?.trim()),
-    chatterboxConfigured: isChatterboxConfigured(),
-    chatterboxSetup:
-      'Set CHATTERBOX_API_URL (or CHATTERBOX_URL) on the Railway backend service — not Vercel. Optional: CHATTERBOX_API_KEY, CHATTERBOX_VOICE_ID=positive.',
+    ...chatterbox,
   });
 });
 
@@ -56,14 +60,33 @@ router.post('/voice/synthesize', async (req, res) => {
   try {
     const body = req.body ?? {};
     const text = typeof body.text === 'string' ? body.text : '';
-    const voiceId = typeof body.voiceId === 'string' ? body.voiceId : undefined;
-    const result = await synthesizeDeepAlVoice({ text, voiceId });
-    res.status(result.ok ? 200 : 503).json(result);
-  } catch (e: unknown) {
-    res.status(500).json({
+
+    const result = await synthesizeDeepAlVoice({
+      text,
+      workspace: typeof body.workspace === 'string' ? body.workspace : undefined,
+      module: typeof body.module === 'string' ? body.module : undefined,
+      conversationId: typeof body.conversationId === 'string' ? body.conversationId : undefined,
+      messageId: typeof body.messageId === 'string' ? body.messageId : undefined,
+    });
+
+    if (result.ok) {
+      res.status(200).json(result);
+      return;
+    }
+
+    const status = result.error === 'VALIDATION_ERROR' ? 400 : 503;
+    res.status(status).json({
       ok: false,
-      provider: 'none',
-      error: e instanceof Error ? e.message : 'Voice synthesis failed.',
+      error: result.error === 'VALIDATION_ERROR' ? 'VALIDATION_ERROR' : 'VOICE_UNAVAILABLE',
+      fallback: result.fallback,
+      ...(process.env.DEBUG_VOICE_LOGS === 'true' && result.message ? { message: result.message } : {}),
+    });
+  } catch (e: unknown) {
+    console.warn('[deepal-voice] route error:', e instanceof Error ? e.message : 'unknown');
+    res.status(503).json({
+      ok: false,
+      error: 'VOICE_UNAVAILABLE',
+      fallback: 'text-only',
     });
   }
 });
