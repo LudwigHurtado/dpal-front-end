@@ -990,3 +990,125 @@ model DmrvReportBlockchainAnchor {
   @@index([reportDbId])
   @@index([versionId])
 }
+
+// ─── MRV Super Agent (scheduled readiness checks) ─────────────────────────────
+
+enum MrvAgentRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+enum MrvFindingSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum MrvFindingCategory {
+  PROJECT_CONFIG
+  AOI
+  SATELLITE
+  EVIDENCE
+  FIELD
+  CALCULATION
+  SECURITY
+  VALIDATOR
+}
+
+enum MrvMissionType {
+  SCHEDULED
+  MANUAL_RUN
+  ON_DEMAND
+}
+
+/// Server-side project snapshot for cron agents (synced from Field OS / dMRV UI).
+model MrvProjectConfig {
+  id          String   @id @default(cuid())
+  projectId   String   @unique
+  ownerUserId String?
+  configJson  Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("mrv_project_configs")
+  @@index([ownerUserId])
+}
+
+model MrvAgentSchedule {
+  id             String        @id @default(cuid())
+  projectId      String
+  name           String
+  cronExpression String        @default("0 12 * * *")
+  timezone       String        @default("America/La_Paz")
+  enabled        Boolean       @default(true)
+  missionType    MrvMissionType @default(SCHEDULED)
+  lastRunAt      DateTime?
+  nextRunHint    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  runs MrvAgentRun[]
+
+  @@map("mrv_agent_schedules")
+  @@index([projectId])
+  @@index([enabled])
+}
+
+model MrvAgentRun {
+  id          String             @id @default(cuid())
+  projectId   String
+  scheduleId  String?
+  schedule    MrvAgentSchedule?  @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  missionType MrvMissionType
+  status      MrvAgentRunStatus  @default(RUNNING)
+  startedAt   DateTime           @default(now())
+  finishedAt  DateTime?
+  summary     Json?
+  findings    Json?
+  errors      Json?
+  createdBy   String             @default("DPAL_SUPER_AGENT")
+
+  agentFindings MrvAgentFinding[]
+
+  @@map("mrv_agent_runs")
+  @@index([projectId, startedAt])
+  @@index([scheduleId])
+  @@index([status])
+}
+
+model MrvAgentFinding {
+  id        String             @id @default(cuid())
+  runId     String
+  run       MrvAgentRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  projectId String
+  severity  MrvFindingSeverity
+  category  MrvFindingCategory
+  title     String
+  message   String
+  action    String?
+  source    String
+  createdAt DateTime           @default(now())
+
+  @@map("mrv_agent_findings")
+  @@index([runId])
+  @@index([projectId, createdAt])
+  @@index([severity])
+}
+
+model MrvNotification {
+  id        String             @id @default(cuid())
+  projectId String
+  userId    String?
+  title     String
+  message   String
+  severity  MrvFindingSeverity @default(INFO)
+  read      Boolean            @default(false)
+  runId     String?
+  createdAt DateTime           @default(now())
+
+  @@map("mrv_notifications")
+  @@index([projectId, createdAt])
+  @@index([userId, read])
+}

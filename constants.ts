@@ -143,8 +143,14 @@ export const API_ROUTES = {
   DPAL_ASSISTANT_PROJECT_GUIDE: '/api/dpal-assistant/project-guide',
   /** Living dMRV report JSON (structured report object, versions, anchors) */
   DMRV_REPORTS: '/api/dmrv/reports',
+  /** MRV Super Agent — schedules, runs, notifications (backend Prisma) */
+  MRV_PROJECTS: '/api/mrv/projects',
   /** POST — AI Report Reader (Gemini when configured; deterministic fallback). */
   DPAL_ASSISTANT_REPORT_READER_CHAT: '/api/dpal-assistant/report-reader/chat',
+  /** DeepAL structured chat + audit-safe rationale */
+  DEEPAL_CHAT: '/api/deepal/chat',
+  /** DeepAL Chatterbox voice synthesis (server proxy) */
+  DEEPAL_VOICE_SYNTHESIZE: '/api/deepal/voice/synthesize',
   /** DPAL Water Monitor + Verified Water Impact Credits */
   WATER_PROJECTS: '/api/water/projects',
   WATER_CREDITS: '/api/water/credits',

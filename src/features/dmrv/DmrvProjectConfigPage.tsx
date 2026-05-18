@@ -35,6 +35,7 @@ import {
 } from './services/dmrvProjectContextService';
 import { syncDmrvInputConfigsProjectContext } from './services/dmrvInputConfigService';
 import type { DmrvMethodologyDomain, DmrvProjectContext } from './services/dmrvProjectContextTypes';
+import { DmrvSuperAgentPanel } from './components/DmrvSuperAgentPanel';
 import { DmrvWorkflowShell } from './reporting/DmrvWorkflowShell';
 import { DmrvWorkflowReportHeader } from './reporting/DmrvWorkflowReportHeader';
 import { DMRV_REPORT_MILESTONES } from './reporting/dmrvReportMilestones';
@@ -567,6 +568,10 @@ export default function DmrvProjectConfigPage({
         ) : null}
 
         <DmrvWorkflowProgress activeStep={0} />
+
+        {!isNew && liveProjectId ? (
+          <DmrvSuperAgentPanel projectId={liveProjectId} projectContext={ctx} />
+        ) : null}
 
         {notice ? (
           <p className="my-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700">
