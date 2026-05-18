@@ -697,6 +697,7 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
             stopSpeaking={voice.stopSpeaking}
             ttsSupported={voice.ttsSupported}
             ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+            voiceError={voice.voiceError}
           />
           {customAnswer ? (
             <div className="mt-2 rounded-lg border border-cyan-500/30 bg-slate-900/70 p-3 text-slate-300">

@@ -4,6 +4,8 @@ import { postDeepAlVoiceSynthesize, resolveVoiceAudioUrl } from '../api/deepalVo
 export type UseChatterboxPlaybackOptions = {
   workspace?: string;
   module?: string;
+  /** Max wait for Chatterbox API before reporting failure (browser fallback can run). */
+  clientTimeoutMs?: number;
   onPlaybackStart?: () => void;
   onPlaybackEnd?: () => void;
   onPlaybackError?: (message: string) => void;
@@ -15,6 +17,7 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
   const [lastError, setLastError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const revokeObjectUrl = useCallback(() => {
     if (objectUrlRef.current) {
@@ -24,6 +27,8 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
   }, []);
 
   const stop = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
@@ -44,10 +49,20 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
       setIsLoading(true);
       setLastError(null);
 
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       const result = await postDeepAlVoiceSynthesize(trimmed, {
         workspace: options.workspace,
         module: options.module,
+        signal: controller.signal,
+        timeoutMs: options.clientTimeoutMs ?? 25_000,
       });
+
+      if (controller.signal.aborted) {
+        setIsLoading(false);
+        return false;
+      }
 
       const audioUrl =
         result.ok && result.audioUrl

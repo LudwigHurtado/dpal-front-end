@@ -11,8 +11,8 @@ export type AiVoiceReplyControlsProps = {
   stopSpeaking: () => void;
   ttsSupported: boolean;
   ttsUnsupportedMessage: string;
+  voiceError?: string | null;
   className?: string;
-  /** Manual TTS button label (default: Listen). */
   listenLabel?: string;
 };
 
@@ -26,6 +26,7 @@ export function AiVoiceReplyControls({
   stopSpeaking,
   ttsSupported,
   ttsUnsupportedMessage,
+  voiceError = null,
   className = '',
   listenLabel = 'Listen',
 }: AiVoiceReplyControlsProps): React.ReactElement {
@@ -49,7 +50,6 @@ export function AiVoiceReplyControls({
       {trimmedReply && ttsSupported ? (
         <button
           type="button"
-          disabled={isGeneratingVoice}
           onClick={() => {
             if (isSpeaking || isGeneratingVoice) {
               stopSpeaking();
@@ -57,14 +57,19 @@ export function AiVoiceReplyControls({
             }
             speak(trimmedReply);
           }}
-          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[9px] font-bold text-[#1e3a5f] hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[9px] font-bold text-[#1e3a5f] hover:bg-slate-50"
           aria-label={
-            isGeneratingVoice ? 'Generating voice' : isSpeaking ? 'Stop speaking' : 'Listen to reply'
+            isGeneratingVoice ? 'Cancel voice' : isSpeaking ? 'Stop speaking' : 'Listen to reply'
           }
         >
           <Volume2 className="h-3 w-3" aria-hidden />
-          {isGeneratingVoice ? 'Loading…' : isSpeaking ? 'Stop' : listenLabel}
+          {isGeneratingVoice ? 'Cancel' : isSpeaking ? 'Stop' : listenLabel}
         </button>
+      ) : null}
+      {voiceError ? (
+        <span className="max-w-full text-[10px] text-amber-700" role="status">
+          {voiceError}
+        </span>
       ) : null}
     </div>
   );

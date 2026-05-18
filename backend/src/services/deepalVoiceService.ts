@@ -44,7 +44,7 @@ export type ChatterboxHealthStatus = {
 
 const DEFAULT_VOICE_MAX_CHARS = 2500;
 const DEFAULT_CHATTERBOX_PROBE_MS = 8_000;
-const DEFAULT_CHATTERBOX_SYNTHESIZE_MS = 120_000;
+const DEFAULT_CHATTERBOX_SYNTHESIZE_MS = 300_000;
 
 let configLogged = false;
 

@@ -21,7 +21,12 @@ export type DeepAlVoiceSynthesizeOptions = {
   module?: string;
   conversationId?: string;
   messageId?: string;
+  signal?: AbortSignal;
+  /** Client-side wait before giving up (default 25000ms). */
+  timeoutMs?: number;
 };
+
+const DEFAULT_CLIENT_TIMEOUT_MS = 25_000;
 
 export async function postDeepAlVoiceSynthesize(
   text: string,
@@ -43,21 +48,54 @@ export async function postDeepAlVoiceSynthesize(
   if (options.conversationId) body.conversationId = options.conversationId;
   if (options.messageId) body.messageId = options.messageId;
 
+  const timeoutMs = options.timeoutMs ?? DEFAULT_CLIENT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  if (options.signal) {
+    if (options.signal.aborted) {
+      clearTimeout(timeoutId);
+      return {
+        ok: false,
+        error: 'VOICE_UNAVAILABLE',
+        fallback: 'text-only',
+        message: 'Voice request cancelled.',
+      };
+    }
+    options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+  }
+
   try {
     const res = await fetch(apiUrl(API_ROUTES.DEEPAL_VOICE_SYNTHESIZE), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
     const data = (await res.json().catch(() => ({}))) as DeepAlVoiceSynthesizeResponse;
+    if (!res.ok && data.ok !== true) {
+      return {
+        ok: false,
+        error: data.error ?? 'VOICE_UNAVAILABLE',
+        fallback: data.fallback ?? 'text-only',
+        message: data.message ?? `Voice API HTTP ${res.status}`,
+      };
+    }
     return data;
   } catch (e: unknown) {
+    const aborted = e instanceof Error && e.name === 'AbortError';
     return {
       ok: false,
       error: 'VOICE_UNAVAILABLE',
       fallback: 'text-only',
-      message: e instanceof Error ? e.message : 'Voice synthesis request failed.',
+      message: aborted
+        ? 'Chatterbox is still loading — using browser voice.'
+        : e instanceof Error
+          ? e.message
+          : 'Voice synthesis request failed.',
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

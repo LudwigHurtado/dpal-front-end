@@ -5,6 +5,8 @@ import { useChatterboxPlayback } from './useChatterboxPlayback';
 export type UseAiVoiceAssistantOptions = {
   defaultAutoSpeak?: boolean;
   language?: string;
+  workspace?: string;
+  module?: string;
 };
 
 export type AiVoiceProvider = 'chatterbox' | 'browser' | null;
@@ -12,8 +14,13 @@ export type AiVoiceProvider = 'chatterbox' | 'browser' | null;
 export function useAiVoiceAssistant(options: UseAiVoiceAssistantOptions = {}) {
   const [autoSpeak, setAutoSpeak] = useState(options.defaultAutoSpeak ?? true);
   const [voiceProvider, setVoiceProvider] = useState<AiVoiceProvider>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const browserTts = useTextToSpeech({ language: options.language });
-  const chatterbox = useChatterboxPlayback();
+  const chatterbox = useChatterboxPlayback({
+    workspace: options.workspace,
+    module: options.module,
+    clientTimeoutMs: 25_000,
+  });
   const autoSpeakRef = useRef(autoSpeak);
 
   useEffect(() => {
@@ -24,6 +31,7 @@ export function useAiVoiceAssistant(options: UseAiVoiceAssistantOptions = {}) {
     chatterbox.stop();
     browserTts.stop();
     setVoiceProvider(null);
+    setStatusMessage(null);
   }, [browserTts, chatterbox]);
 
   const speak = useCallback(
@@ -33,15 +41,31 @@ export function useAiVoiceAssistant(options: UseAiVoiceAssistantOptions = {}) {
 
       void (async () => {
         stopSpeaking();
+        setStatusMessage('Generating natural voice…');
+
         const played = await chatterbox.playText(trimmed);
         if (played) {
           setVoiceProvider('chatterbox');
+          setStatusMessage(null);
           return;
         }
-        if (await browserTts.speakAsync(trimmed)) {
+
+        setStatusMessage('Using browser voice while Chatterbox warms up…');
+        const browserPlayed = await browserTts.speakAsync(trimmed);
+        if (browserPlayed) {
           setVoiceProvider('browser');
+          setStatusMessage(
+            chatterbox.lastError
+              ? 'Playing browser voice (Chatterbox still loading on server — try again in a minute).'
+              : null,
+          );
         } else {
           setVoiceProvider(null);
+          setStatusMessage(
+            chatterbox.lastError ?? browserTts.isSupported
+              ? 'Could not play voice. Tap Speak to retry.'
+              : TTS_UNSUPPORTED_MESSAGE,
+          );
         }
       })();
     },
@@ -74,7 +98,8 @@ export function useAiVoiceAssistant(options: UseAiVoiceAssistantOptions = {}) {
     isSpeaking,
     isGeneratingVoice: chatterbox.isLoading,
     voiceProvider,
-    voiceError: chatterbox.lastError,
+    voiceError: chatterbox.lastError ?? statusMessage,
+    statusMessage,
     speak,
     stopSpeaking,
     speakReply,

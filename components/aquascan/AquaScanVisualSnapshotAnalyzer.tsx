@@ -291,6 +291,7 @@ export default function AquaScanVisualSnapshotAnalyzer({
         stopSpeaking={voice.stopSpeaking}
         ttsSupported={voice.ttsSupported}
         ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+        voiceError={voice.voiceError}
       />
       {reading ? (
         <div className={`mt-2 rounded-lg border border-slate-700 bg-slate-950/70 text-slate-200 ${variant === 'compact' ? 'max-h-48 overflow-y-auto p-2 text-[9px] leading-relaxed' : 'max-h-[28rem] overflow-y-auto p-3 text-xs leading-relaxed'}`}>
