@@ -95,7 +95,7 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       'Validator review state and any community / lab notes',
     ],
     limitationNote:
-      'Indicative MRV estimate — not a certified carbon credit. Field sampling and validator review are required before any public claim.',
+      'Indicative DMRV estimate — not a certified carbon credit. Field sampling and validator review are required before any public claim.',
     recommendedNextAction:
       'Open AquaScan, confirm the focus location, draw or load the AOI, and run a Copernicus comparison.',
     accent: 'sky',

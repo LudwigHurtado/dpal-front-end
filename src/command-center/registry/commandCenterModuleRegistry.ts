@@ -18,7 +18,7 @@ export const COMMAND_CENTER_MODULE_REGISTRY: CommandCenterModuleRegistryEntry[] 
     shortLabel: 'AquaScan',
     bestFor: 'Water extent, Copernicus compare, intake / AOI context.',
     defaultLimitations: [
-      'Indicative MRV context only — not a certified water credit or legal determination.',
+      'Indicative DMRV context only — not a certified water credit or legal determination.',
       'Live adapters depend on configured API base and Copernicus credentials.',
     ],
     workspaceView: 'aquaScanWater',
@@ -71,13 +71,13 @@ export const COMMAND_CENTER_MODULE_REGISTRY: CommandCenterModuleRegistryEntry[] 
   },
   {
     key: 'carbonViu',
-    label: 'Carbon MRV / VIU context',
+    label: 'Carbon DMRV / VIU context',
     shortLabel: 'Carbon / VIU',
-    bestFor: 'Project MRV, air quality / mineral scan context where configured.',
+    bestFor: 'Project DMRV, air quality / mineral scan context where configured.',
     defaultLimitations: [
       'No automatic VIU issuance or carbon credit creation from Command Center previews.',
     ],
-    workspaceView: 'carbonMRV',
+    workspaceView: 'carbonDMRV',
     recommendedFor: ['carbon', 'full_environmental'],
   },
   {

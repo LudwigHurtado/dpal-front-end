@@ -67,7 +67,7 @@ function buildPrompt(
       domain === "water"
         ? "Water monitoring project: assess water availability, drought risk, soil moisture, surface water, and Sentinel-1 SAR flood or pooling signals when supplied."
         : domain === "carbon"
-          ? "Carbon MRV project: assess vegetation health, NDVI trend, deforestation risk, land cover, and carbon-credit credibility."
+          ? "Carbon DMRV project: assess vegetation health, NDVI trend, deforestation risk, land cover, and carbon-credit credibility."
           : "Carbon offset project: assess vegetation health, soil moisture, drought stress, permanence, and offset credibility."
     }`.trim(),
     data,

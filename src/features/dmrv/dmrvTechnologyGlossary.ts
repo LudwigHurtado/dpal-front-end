@@ -3,7 +3,7 @@
 export type DmrvTechnologyEntry = {
   /** What the instrument or product is. */
   summary: string;
-  /** How DPAL uses it in MRV screening and evidence workflows. */
+  /** How DPAL uses it in DMRV screening and evidence workflows. */
   inDpal: string;
 };
 
@@ -18,7 +18,7 @@ const GLOSSARY: Record<string, DmrvTechnologyEntry> = {
     summary:
       'Thermal Infrared Sensor 2 — two thermal bands that estimate land surface temperature. Useful for heat stress, urban heat, fire scars, and evapotranspiration context.',
     inDpal:
-      'When thermal is available in the selected product, DPAL can surface temperature anomalies next to optical indices. Many MRV workflows lean on OLI-2 reflectance first; thermal adds supporting context for drought, fire, or industrial heat screening.',
+      'When thermal is available in the selected product, DPAL can surface temperature anomalies next to optical indices. Many DMRV workflows lean on OLI-2 reflectance first; thermal adds supporting context for drought, fire, or industrial heat screening.',
   },
   'Collection 2 Surface Reflectance': {
     summary:
@@ -36,7 +36,7 @@ const GLOSSARY: Record<string, DmrvTechnologyEntry> = {
     summary:
       'MultiSpectral Instrument on Sentinel-2 — 13 bands from visible to shortwave infrared at 10–60 m, designed for vegetation, agriculture, and land monitoring.',
     inDpal:
-      'Sentinel-2 is often chosen for fresher optical pairs than Landsat alone. DPAL Copernicus and STAC paths can compare Level-2A reflectance for NDVI/NDWI-style indices in water and land MRV modules when those routes are configured on your API host.',
+      'Sentinel-2 is often chosen for fresher optical pairs than Landsat alone. DPAL Copernicus and STAC paths can compare Level-2A reflectance for NDVI/NDWI-style indices in water and land DMRV modules when those routes are configured on your API host.',
   },
   'Level-2A surface reflectance': {
     summary:
@@ -108,7 +108,7 @@ const GLOSSARY: Record<string, DmrvTechnologyEntry> = {
     summary:
       'Ocean Color Instrument on PACE — hyperspectral measurements of ocean biology, sediments, and water-leaving radiance.',
     inDpal:
-      'Coastal water quality and plastic/ocean MRV modules can reference OCI for chlorophyll and color anomalies. Hyperspectral PACE paths in DPAL are screening until validated against in situ water samples.',
+      'Coastal water quality and plastic/ocean DMRV modules can reference OCI for chlorophyll and color anomalies. Hyperspectral PACE paths in DPAL are screening until validated against in situ water samples.',
   },
   'HARP2 polarimetry': {
     summary:

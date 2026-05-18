@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { DmrvProjectContext } from '../services/dmrvProjectContextTypes';
 import type { DmrvInputConfig } from '../services/dmrvInputConfigTypes';
 import { scheduleDebouncedReportPersist } from './dmrvReportApi';
-import { rebuildDmrvReportSilent, type DmrvReportBuildOverrides } from './dmrvReportStore';
+import { rebuilDMRVReportSilent, type DmrvReportBuildOverrides } from './dmrvReportStore';
 import type { DmrvReportSyncMeta } from './dmrvReportTypes';
 
 const LIVE_DEBOUNCE_MS = 1200;
@@ -86,7 +86,7 @@ export function useDmrvLiveReportSync(
       overrides.draftSourceSelections = liveOptions.draftSourceSelections;
     }
 
-    rebuildDmrvReportSilent(projectId, overrides);
+    rebuilDMRVReportSilent(projectId, overrides);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {

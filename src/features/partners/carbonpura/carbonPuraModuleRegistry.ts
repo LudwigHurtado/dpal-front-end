@@ -51,15 +51,15 @@ export const CARBONPURA_LIVE_ENGINES: CarbonPuraEngineDef[] = [
   },
   {
     id: 'carbon-mrv',
-    viewKey: 'carbonMRV',
-    label: 'Carbon MRV Engine',
-    routePath: VIEW_PATHS.carbonMRV,
+    viewKey: 'carbonDMRV',
+    label: 'Carbon DMRV Engine',
+    routePath: VIEW_PATHS.carbonDMRV,
     purpose:
       'Carbon project monitoring, baseline/additionality support, and carbon/CO₂e evidence workflows.',
     statusLabel: 'Live route',
     supportsContextLink: false,
     attachmentStatus: 'live_route',
-    verifyNote: 'Air-quality and mineral adapters are available from the Carbon MRV dashboard tabs.',
+    verifyNote: 'Air-quality and mineral adapters are available from the Carbon DMRV dashboard tabs.',
   },
   {
     id: 'forest-integrity',
@@ -83,7 +83,7 @@ export const CARBONPURA_LIVE_ENGINES: CarbonPuraEngineDef[] = [
     statusLabel: 'Live route',
     supportsContextLink: false,
     attachmentStatus: 'live_route',
-    verifyNote: 'Opens Carbon MRV with the air-quality tab — live reads depend on API configuration.',
+    verifyNote: 'Opens Carbon DMRV with the air-quality tab — live reads depend on API configuration.',
   },
   {
     id: 'hazardous-waste',

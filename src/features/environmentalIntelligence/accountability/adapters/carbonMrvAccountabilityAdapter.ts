@@ -1,5 +1,5 @@
 /**
- * Carbon MRV — summary adapter from optional dashboard snapshot (no heavy CarbonMRVDashboard import).
+ * Carbon DMRV — summary adapter from optional dashboard snapshot (no heavy CarbonDMRVDashboard import).
  */
 
 import type { AccountabilityModuleAdapter, AccountabilityModuleSignal } from '../../shared/accountabilityModuleAdapters';
@@ -21,7 +21,7 @@ export function normalizeCarbonMrvSummary(s: CarbonMrvAccountabilitySummary | nu
     {
       id: `cmrv-${Date.now()}`,
       moduleId: 'carbon_mrv',
-      moduleLabel: 'Carbon MRV',
+      moduleLabel: 'Carbon DMRV',
       moduleStatus: preview ? 'preview_only' : liveBits > 0 ? 'partial' : 'metadata_only',
       providerIds: ['LANDSAT_8_9', 'OCO_2'],
       signalType: 'carbon_mrv',
@@ -29,7 +29,7 @@ export function normalizeCarbonMrvSummary(s: CarbonMrvAccountabilitySummary | nu
       aoi: 'Project boundary (summary)',
       observedDate: new Date().toISOString().slice(0, 10),
       summary:
-        'Carbon MRV workspace context — MRV support for disclosure comparison, not automatic credit verification.',
+        'Carbon DMRV workspace context — DMRV support for disclosure comparison, not automatic credit verification.',
       confidenceLevel:
         liveBits >= 2
           ? SatelliteConfidenceLevel.multi_source_supported
@@ -37,7 +37,7 @@ export function normalizeCarbonMrvSummary(s: CarbonMrvAccountabilitySummary | nu
             ? SatelliteConfidenceLevel.preview_only
             : SatelliteConfidenceLevel.metadata_only,
       evidenceReadiness: SatelliteEvidenceReadiness.needs_field_validation,
-      sourceSummary: s.mrvScore != null ? `MRV score context: ${s.mrvScore}` : 'MRV indicators not attached in summary',
+      sourceSummary: s.mrvScore != null ? `DMRV score context: ${s.mrvScore}` : 'DMRV indicators not attached in summary',
       limitations: ['Local/demo mode must be labeled preview when APIs are cold'],
       warnings: ['deforestation_free and net_zero claims require official record and field cross-check.'],
       previewOnly: preview || liveBits === 0,
@@ -48,11 +48,11 @@ export function normalizeCarbonMrvSummary(s: CarbonMrvAccountabilitySummary | nu
 
 export const carbonMrvAccountabilityAdapter: AccountabilityModuleAdapter = {
   moduleId: 'carbon_mrv',
-  label: 'Carbon MRV',
-  description: 'Satellite and adapter reads from the Carbon MRV dashboard when summarized for accountability.',
+  label: 'Carbon DMRV',
+  description: 'Satellite and adapter reads from the Carbon DMRV dashboard when summarized for accountability.',
   route: '/carbon',
   supportsClaimTypes: ['carbon_credit', 'net_zero', 'deforestation_free', 'co2_emissions', 'other'],
   supportsSignalTypes: ['carbon_mrv', 'co2_hotspot', 'vegetation_decline', 'biomass_decline'],
-  legalCaution: 'Carbon MRV outputs support MRV narratives — they are not sole proof of net-zero or credit quality.',
+  legalCaution: 'Carbon DMRV outputs support DMRV narratives — they are not sole proof of net-zero or credit quality.',
   normalize: (raw) => normalizeCarbonMrvSummary(raw as CarbonMrvAccountabilitySummary | null),
 };

@@ -61,7 +61,7 @@ const PROVIDERS: MrvAiProviderOption[] = [
     id: 'openai',
     label: 'ChatGPT / OpenAI',
     shortLabel: 'ChatGPT',
-    description: 'Backup reviewer for independent MRV comparison.',
+    description: 'Backup reviewer for independent DMRV comparison.',
   },
   {
     id: 'anthropic',
@@ -72,7 +72,7 @@ const PROVIDERS: MrvAiProviderOption[] = [
 ];
 
 const DEFAULT_PROMPT =
-  'Review this MRV selection for validator readiness. Identify missing evidence, risk flags, and next steps before a validator relies on this packet.';
+  'Review this DMRV selection for validator readiness. Identify missing evidence, risk flags, and next steps before a validator relies on this packet.';
 
 function apiBase(): string {
   const configured = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_URL || '';
@@ -104,7 +104,7 @@ function saveAuditRecordLocally(record: MrvAiAuditRecord): void {
     const next = Array.isArray(existing) ? [record, ...existing].slice(0, 25) : [record];
     localStorage.setItem(key, JSON.stringify(next));
   } catch (error) {
-    console.warn('Unable to store MRV AI audit record locally', error);
+    console.warn('Unable to store DMRV AI audit record locally', error);
   }
 }
 
@@ -163,14 +163,14 @@ export function MrvMultiAiValidatorPanel({
 
       const body = await response.json().catch(() => null);
       if (!response.ok || !body?.ok) {
-        throw new Error(body?.error || `MRV AI router failed with HTTP ${response.status}`);
+        throw new Error(body?.error || `DMRV AI router failed with HTTP ${response.status}`);
       }
 
       setAuditRecord(body.auditRecord);
       saveAuditRecordLocally(body.auditRecord);
       setBackupStatus(body.backup?.message || 'Audit record prepared for validator backup.');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unknown MRV AI error.');
+      setError(caught instanceof Error ? caught.message : 'Unknown DMRV AI error.');
     } finally {
       setIsRunning(false);
     }
@@ -181,7 +181,7 @@ export function MrvMultiAiValidatorPanel({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-700">
-            MRV Multi-AI Validator Backup
+            DMRV Multi-AI Validator Backup
           </p>
           <h3 className="mt-1 text-lg font-black text-[#1e3a5f]">
             Compare one AI or all three before validator review
@@ -280,7 +280,7 @@ export function MrvMultiAiValidatorPanel({
           disabled={isRunning}
           className="rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-black text-white shadow-sm hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isRunning ? 'Running MRV AI review…' : 'Run selected AI review'}
+          {isRunning ? 'Running DMRV AI review…' : 'Run selected AI review'}
         </button>
         {auditRecord ? (
           <button

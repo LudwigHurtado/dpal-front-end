@@ -129,8 +129,8 @@ export const CARBONPURA_MODULE_VERIFICATION: CarbonPuraModuleVerificationRow[] =
   },
   {
     id: 'carbon-mrv',
-    moduleName: 'Carbon MRV Engine',
-    nativeRoute: VIEW_PATHS.carbonMRV,
+    moduleName: 'Carbon DMRV Engine',
+    nativeRoute: VIEW_PATHS.carbonDMRV,
     contextRoute: null,
     routeStatus: 'Route registered in SPA',
     contextBannerStatus: 'N/A — no context route',
@@ -139,7 +139,7 @@ export const CARBONPURA_MODULE_VERIFICATION: CarbonPuraModuleVerificationRow[] =
     verificationNotes:
       'Opens at /carbon. No CarbonPura context banner wired. Air-quality and mineral adapters live on dashboard when API host exposes /api/carbon/*.',
     nextAction: 'Manual route test',
-    evidenceExportPath: 'Carbon MRV → project detail → MRV / ledger sections',
+    evidenceExportPath: 'Carbon DMRV → project detail → DMRV / ledger sections',
     providerProbeKey: null,
     qaChecklist: qa('carbon-mrv'),
   },
@@ -173,9 +173,9 @@ export const CARBONPURA_MODULE_VERIFICATION: CarbonPuraModuleVerificationRow[] =
     providerStatus: 'Needs backend support',
     evidenceAttachmentStatus: 'Attachment pending',
     verificationNotes:
-      'Route /air registered. Context link defined for aerosol suite handoff; banner not mounted on air surface (may route via Carbon MRV tab in product copy). Live reads depend on API configuration.',
+      'Route /air registered. Context link defined for aerosol suite handoff; banner not mounted on air surface (may route via Carbon DMRV tab in product copy). Live reads depend on API configuration.',
     nextAction: 'Add context banner',
-    evidenceExportPath: 'Air / Carbon MRV air-quality tab → module-native exports',
+    evidenceExportPath: 'Air / Carbon DMRV air-quality tab → module-native exports',
     providerProbeKey: null,
     qaChecklist: qa('air-quality'),
   },

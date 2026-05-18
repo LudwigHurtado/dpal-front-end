@@ -8,7 +8,7 @@ const META: Record<
   water: {
     label: 'AquaScan · Water intelligence',
     defaultLimitations: [
-      'Indicative MRV context only — not a certified water credit or legal determination.',
+      'Indicative DMRV context only — not a certified water credit or legal determination.',
       'Live adapters depend on configured API base and Copernicus credentials.',
     ],
   },
@@ -38,7 +38,7 @@ const META: Record<
     ],
   },
   carbonViu: {
-    label: 'Carbon MRV / VIU context',
+    label: 'Carbon DMRV / VIU context',
     defaultLimitations: [
       'No automatic VIU issuance or carbon credit creation from Command Center previews.',
     ],

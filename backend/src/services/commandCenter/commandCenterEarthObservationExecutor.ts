@@ -8,7 +8,7 @@ import { COMMAND_CENTER_WORKSPACE_VIEW } from './commandCenterModuleRegistry';
 const VIEW = COMMAND_CENTER_WORKSPACE_VIEW.earthObservation;
 
 const CC_EO_LIMITATIONS = [
-  'Command Center Earth Observation result is an evidence lead only — not a legal finding, certified MRV outcome, or credit issuance.',
+  'Command Center Earth Observation result is an evidence lead only — not a legal finding, certified DMRV outcome, or credit issuance.',
   'Full Earth Observation workspace is required for AOI review, overlays, before/after comparison, and evidence packet generation.',
   'Satellite and provider outputs are scene-level screening signals; field validation may be required.',
 ];

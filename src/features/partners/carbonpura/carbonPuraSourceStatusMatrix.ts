@@ -152,22 +152,22 @@ export function buildCarbonPuraSourceMatrix(probe: CarbonPuraProbeSnapshot): Pro
     entry({
       id: 'sentinel-2-copernicus',
       sourceName: 'Sentinel-2 (Copernicus Data Space)',
-      category: 'Water / satellite MRV',
+      category: 'Water / satellite DMRV',
       status: probe.copernicusError ? 'unavailable' : copProbe.status,
       reason: probe.copernicusError
         ? `Copernicus proxy status failed: ${probe.copernicusError}`
         : copProbe.status === 'live'
           ? 'Copernicus/Sentinel workflows are connected for water/forest/AOI analysis where provider health is OK.'
           : copProbe.status === 'partial'
-            ? 'Copernicus integration is enabled but not fully configured on the API host — AquaScan may show degraded MRV compare.'
+            ? 'Copernicus integration is enabled but not fully configured on the API host — AquaScan may show degraded DMRV compare.'
             : 'Copernicus proxy is disabled or unreachable; AquaScan NDVI/NDWI/NDMI/NBR compare depends on backend configuration.',
-      currentCapability: 'AOI scan, water/vegetation indices, before/after comparison support via AquaScan MRV compare',
+      currentCapability: 'AOI scan, water/vegetation indices, before/after comparison support via AquaScan DMRV compare',
       missingForFullLive:
         'Depends on provider health/rate limits, credentials on API host, and operator-initiated compare (not auto-run from CarbonPura hub)',
       relatedModule: 'AquaScan Technical Water Scan',
       route: VIEW_PATHS.aquaScanWater,
       providerNotes: copProbe.providerNotes ?? probe.copernicus?.message,
-      confidenceUse: 'Technical water-satellite screening — indicative MRV, not certified credits or legal determination',
+      confidenceUse: 'Technical water-satellite screening — indicative DMRV, not certified credits or legal determination',
     }),
 
     entry({
@@ -214,7 +214,7 @@ export function buildCarbonPuraSourceMatrix(probe: CarbonPuraProbeSnapshot): Pro
       relatedModule: 'Water Operations Engine',
       route: VIEW_PATHS.waterOperationsEngine,
       providerNotes: probe.waterStatsError ?? undefined,
-      confidenceUse: 'Operational water MRV workflow — credits and claims require validator and registry gates',
+      confidenceUse: 'Operational water DMRV workflow — credits and claims require validator and registry gates',
     }),
 
     entry({
@@ -223,8 +223,8 @@ export function buildCarbonPuraSourceMatrix(probe: CarbonPuraProbeSnapshot): Pro
       category: 'Air / ppm intelligence',
       status: 'partial',
       reason:
-        'Air Quality opens the live Carbon MRV dashboard air tab; OpenAQ-style reads and ppm normalization depend on API routes and keys on the filing host — not polled from this hub.',
-      currentCapability: 'Live route to air-quality tab, pollutant context, adapter pulls when configured in Carbon MRV',
+        'Air Quality opens the live Carbon DMRV dashboard air tab; OpenAQ-style reads and ppm normalization depend on API routes and keys on the filing host — not polled from this hub.',
+      currentCapability: 'Live route to air-quality tab, pollutant context, adapter pulls when configured in Carbon DMRV',
       missingForFullLive:
         'Hub-level live OpenAQ status row, CarbonPura attachment of air readings to shared project evidence',
       relatedModule: 'Air Quality / ppm Intelligence',
@@ -234,19 +234,19 @@ export function buildCarbonPuraSourceMatrix(probe: CarbonPuraProbeSnapshot): Pro
 
     entry({
       id: 'carbon-mrv-adapters',
-      sourceName: 'Carbon MRV (OCO-2 / minerals / projects)',
+      sourceName: 'Carbon DMRV (OCO-2 / minerals / projects)',
       category: 'Carbon intelligence',
       status: apiReachable === true ? 'partial' : 'unavailable',
       reason:
         apiReachable === true
-          ? 'Carbon MRV engine is a live route; gas and mineral adapters return live or explicit unavailable states (no fabricated ppm/mineral charts from this hub).'
+          ? 'Carbon DMRV engine is a live route; gas and mineral adapters return live or explicit unavailable states (no fabricated ppm/mineral charts from this hub).'
           : 'Cannot confirm carbon adapter host until DPAL API health succeeds.',
       currentCapability: 'Project monitoring UI, air-quality tab, mineral/geology metadata lookups when API configured',
       missingForFullLive:
         'Unified CarbonPura carbon analysis record, automatic baseline/additionality packet export at hub layer',
-      relatedModule: 'Carbon MRV Engine',
-      route: VIEW_PATHS.carbonMRV,
-      confidenceUse: 'MRV evidence support — not issuance or registry approval',
+      relatedModule: 'Carbon DMRV Engine',
+      route: VIEW_PATHS.carbonDMRV,
+      confidenceUse: 'DMRV evidence support — not issuance or registry approval',
     }),
 
     entry({

@@ -134,9 +134,9 @@ export default function PlanetaryIntelligenceHome({
             <WorkspaceCard
               imageSrc={image.carbon}
               imageAlt="Forest canopy aerial view representing land-based carbon monitoring"
-              title="Carbon &amp; MRV"
+              title="Carbon &amp; DMRV"
               description="Monitor, verify and report carbon activities with precision and integrity."
-              capabilities={['MRV', 'VIUs', 'Registry', 'Nodes']}
+              capabilities={['DMRV', 'VIUs', 'Registry', 'Nodes']}
               statusLabel="Active"
               metrics={[{ label: 'Projects', value: '54' }, { label: 'Packets', value: '1,245' }]}
               onClick={() => goPath('/dmrv')}
@@ -163,10 +163,10 @@ export default function PlanetaryIntelligenceHome({
             />
             <WorkspaceCard
               imageSrc={image.aquaScan}
-              imageAlt="AquaScan MRV satellite AOI analysis workspace"
-              title="AquaScan MRV"
+              imageAlt="AquaScan DMRV satellite AOI analysis workspace"
+              title="AquaScan DMRV"
               description="Technical AOI water satellite analysis, overlays, before/after comparison, and evidence packet support."
-              capabilities={['AOI', 'Copernicus', 'Evidence', 'MRV']}
+              capabilities={['AOI', 'Copernicus', 'Evidence', 'DMRV']}
               statusLabel="Active"
               metrics={[{ label: 'AOIs', value: '42' }, { label: 'Scans', value: '186' }]}
               onClick={() => onNavigate('aquaScanWater')}

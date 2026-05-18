@@ -33,7 +33,7 @@ export default function DmrvHubPage({ onReturn }: DmrvHubPageProps): React.React
         </header>
 
         <DmrvCategoryGallery
-          title="All MRV domains"
+          title="All DMRV domains"
           subtitle="Select a category to open its DMRV types, evidence inputs, and configuration workflow."
         />
 

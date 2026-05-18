@@ -16,9 +16,9 @@ export const ACCOUNTABILITY_CROSS_MODULE_EXAMPLES = [
     outcome: 'satellite_indicated where live — requires field validation for legal claims',
   },
   {
-    module: 'Carbon MRV',
+    module: 'Carbon DMRV',
     signal: 'carbon_mrv',
-    outcome: 'MRV support context — not final credit verification',
+    outcome: 'DMRV support context — not final credit verification',
   },
   {
     module: 'CARB / EPA surfaces',

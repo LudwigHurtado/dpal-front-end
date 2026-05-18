@@ -194,7 +194,7 @@ export const CARBONPURA_PACE_MODULE_MAP = [
   {
     module: 'Blue Carbon / Ocean Carbon',
     paceProducts: 'OC_BGC, POC, phytoplankton carbon, chlorophyll-a, PAR',
-    route: VIEW_PATHS.carbonMRV,
+    route: VIEW_PATHS.carbonDMRV,
   },
   {
     module: 'Algae / Harmful Bloom Context',
@@ -399,8 +399,8 @@ const OCI_SUITE_TEMPLATES: SuiteTemplate[] = [
     qualityFlagsRequired: 'bloom, CDOM, case-2 water, cloud',
     uncertaintyAvailable: false,
     missingForFullLive: 'live chlorophyll/POC extraction, blue-carbon evidence attachment',
-    relatedModule: 'Carbon MRV · Plastic Watch',
-    route: VIEW_PATHS.carbonMRV,
+    relatedModule: 'Carbon DMRV · Plastic Watch',
+    route: VIEW_PATHS.carbonDMRV,
     evidenceUse: 'ocean health / bloom context in environmental packets',
     confidenceUse: 'Algae/bloom confounder — not plastic proof',
   },
@@ -444,7 +444,7 @@ const OCI_SUITE_TEMPLATES: SuiteTemplate[] = [
     qualityFlagsRequired: 'cloud, ice, twilight',
     uncertaintyAvailable: false,
     missingForFullLive: 'live PAR time series in project evidence',
-    relatedModule: 'Water Intelligence · Carbon MRV',
+    relatedModule: 'Water Intelligence · Carbon DMRV',
     route: VIEW_PATHS.waterOperationsEngine,
     evidenceUse: 'bloom timing supporting context',
     confidenceUse: 'Ancillary to plastic-risk layer',

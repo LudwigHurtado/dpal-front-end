@@ -116,7 +116,7 @@ export interface PACEBioOceanSignal {
   coastalWaterQualitySignal?: string;
   aerosolOceanInteractionSignal?: string;
   plasticConfidenceContext?: string;
-  blueCarbonMRVSupport?: string;
+  blueCarbonDMRVSupport?: string;
   confidenceLevel: SatelliteConfidenceLevel;
   evidenceReadiness: SatelliteEvidenceReadiness;
   requiresFieldValidation: boolean;
@@ -124,13 +124,13 @@ export interface PACEBioOceanSignal {
   limitations: string[];
 }
 
-/** GEDI: lidar forest structure / biomass / MRV support — not sole carbon-credit verification. */
+/** GEDI: lidar forest structure / biomass / DMRV support — not sole carbon-credit verification. */
 export interface GEDIForestStructureSignal {
   provider: SatelliteProvider.GEDI_LIDAR;
   canopyHeightSignal?: string;
   forestStructureSignal?: string;
   biomassEstimationSupport?: string;
-  carbonMRVSupport?: string;
+  carbonDMRVSupport?: string;
   habitatBiodiversitySupport?: string;
   confidenceLevel: SatelliteConfidenceLevel;
   evidenceReadiness: SatelliteEvidenceReadiness;
@@ -257,7 +257,7 @@ export function isPreviewOnlySignal(signalOrLane: SatellitePreviewOrValidationCa
 
 /**
  * Human-readable disclaimer from evidence packet readiness and confidence.
- * Emphasizes satellite-indicated vs metadata-only, MRV support (not credit issuance), and field validation.
+ * Emphasizes satellite-indicated vs metadata-only, DMRV support (not credit issuance), and field validation.
  */
 export function buildSatelliteDisclaimer(
   readiness: SatelliteEvidenceReadiness,
@@ -269,9 +269,9 @@ export function buildSatelliteDisclaimer(
   const paceNote =
     'Where NASA PACE (OCI) is referenced, signals describe hyperspectral ocean color, phytoplankton community context, harmful algal bloom risk context, aerosols/clouds/ocean-atmosphere context, coastal water quality, and biogeochemical indicators — not detection of individual animals.';
   const gediNote =
-    'Where NASA GEDI is referenced, signals describe lidar-based forest structure, canopy height, biomass estimation support, vegetation structure, carbon-cycle and MRV support, and habitat/biodiversity context — GEDI alone does not verify carbon credits.';
+    'Where NASA GEDI is referenced, signals describe lidar-based forest structure, canopy height, biomass estimation support, vegetation structure, carbon-cycle and DMRV support, and habitat/biodiversity context — GEDI alone does not verify carbon credits.';
   const core =
-    `This summary is ${confidenceLabel} with evidence packet readiness described as ${readinessLabel}. Satellite-indicated findings are screening context; metadata-only lanes carry no derived physical inference. MRV support does not replace independent verification, laboratory or field sampling, or regulatory determinations.`;
+    `This summary is ${confidenceLabel} with evidence packet readiness described as ${readinessLabel}. Satellite-indicated findings are screening context; metadata-only lanes carry no derived physical inference. DMRV support does not replace independent verification, laboratory or field sampling, or regulatory determinations.`;
 
   if (
     readiness === SatelliteEvidenceReadiness.preview_only ||

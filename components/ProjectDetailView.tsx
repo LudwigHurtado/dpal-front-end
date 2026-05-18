@@ -108,7 +108,7 @@ const HeaderSection: React.FC<{
           Upload Proof
         </button>
         <button onClick={onRunMrv} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-100 transition hover:border-sky-500">
-          Run MRV
+          Run DMRV
         </button>
         <button onClick={onPrepareCredits} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-500">
           Prepare Credits
@@ -230,7 +230,7 @@ const EvidenceSection: React.FC<{ evidence: EvidenceImage[] }> = ({ evidence }) 
 };
 
 const MvrSummarySection: React.FC<{ summary: MvrSummary }> = ({ summary }) => (
-  <SectionCard title="MRV Summary">
+  <SectionCard title="DMRV Summary">
     <div className="mt-4 grid gap-4 sm:grid-cols-2">
       <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
         <p className="text-[11px] uppercase tracking-wide text-slate-500">Confidence Score</p>

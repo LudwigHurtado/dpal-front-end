@@ -81,15 +81,15 @@ export default function EnvironmentalWorkspacePage({
 
         <WorkspaceSection
           id="carbon-mrv"
-          title="Carbon & MRV bridges"
+          title="Carbon & DMRV bridges"
           description="Connect monitoring outputs to carbon engines and market workflows."
           className="mt-10"
         >
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <WorkspaceToolCard
-              title="Carbon MRV Engine"
+              title="Carbon DMRV Engine"
               description="Project intelligence, satellite scans, validator hooks."
-              onClick={() => onNavigate('carbonMRV')}
+              onClick={() => onNavigate('carbonDMRV')}
             />
             <WorkspaceToolCard
               title="Carbon Headquarters"

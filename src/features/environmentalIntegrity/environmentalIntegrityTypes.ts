@@ -33,7 +33,7 @@ export type ExistingDpalModuleViewKey =
   | 'waterOperationsEngine'
   | 'aquaScanWater'
   | 'hyperspectralPlasticWatch'
-  | 'carbonMRV'
+  | 'carbonDMRV'
   | 'forestIntegrity'
   | 'airQualityMonitor'
   | 'hazardousWasteAudit'

@@ -57,5 +57,5 @@ export const CARBONPURA_MODULE_ROUTES = {
   waterMonitor: VIEW_PATHS.waterOperationsEngine,
   forestIntegrity: VIEW_PATHS.forestIntegrity,
   airQuality: VIEW_PATHS.airQualityMonitor,
-  carbonMrv: VIEW_PATHS.carbonMRV,
+  carbonMrv: VIEW_PATHS.carbonDMRV,
 } as const;

@@ -86,7 +86,7 @@ export const DMRV_SATELLITE_MISSIONS: DmrvSatelliteMission[] = [
     agency: 'ESA Copernicus',
     tagline: 'Trace gases & air quality',
     description:
-      'TROPOMI instrument maps NO₂, SO₂, ozone, and methane-related columns for facility plumes, urban air quality, and atmospheric MRV next to ground sensors.',
+      'TROPOMI instrument maps NO₂, SO₂, ozone, and methane-related columns for facility plumes, urban air quality, and atmospheric DMRV next to ground sensors.',
     mrvUses: ['NO₂ columns & air quality', 'Methane plume screening', 'Facility proximity checks', 'Regional pollution context'],
     technologies: ['TROPOMI spectrometer', 'UV–VIS–NIR–SWIR', 'Level-2 trace gas columns', 'Sentinel-5P NRT / offline'],
     imageUrl: '/dmrv/satellites/sentinel-5p.png',

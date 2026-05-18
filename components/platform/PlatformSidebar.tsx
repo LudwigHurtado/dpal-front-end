@@ -51,7 +51,7 @@ function pathMatchesExact(current: string, paths: string[]): boolean {
 
 const WORKSPACE_CHILDREN: NavLeaf[] = [
   {
-    label: 'Carbon & MRV',
+    label: 'Carbon & DMRV',
     view: 'dmrvSelector',
     pathPrefix: '/dmrv',
     paths: [
@@ -74,7 +74,7 @@ const WORKSPACE_CHILDREN: NavLeaf[] = [
     paths: ['/ocean-plastic', '/hyperspectral-plastic-watch', '/plastic-watch'],
   },
   { label: 'Water Intelligence', view: 'waterMonitor', paths: ['/water'] },
-  { label: 'AquaScan MRV', view: 'aquaScanWater', paths: ['/water/aquascan'] },
+  { label: 'AquaScan DMRV', view: 'aquaScanWater', paths: ['/water/aquascan'] },
   { label: 'Water Operations Engine', view: 'waterOperationsEngine', paths: ['/water/monitor'] },
   { label: 'Aqualand Well', view: 'aqualandWell', paths: ['/water/aqualand'] },
   { label: 'Emissions & Industrial', view: 'carbEmissionsAudit', paths: ['/emissions-industrial', '/carb-emissions-audit'] },
@@ -89,7 +89,7 @@ const WORKSPACE_CHILDREN: NavLeaf[] = [
   { label: 'Field OS', view: 'fieldOS', paths: ['/field-os'] },
   { label: 'FloodGuard', view: 'floodGuard', paths: ['/floodguard'] },
   { label: 'Emissions Integrity (EIAS)', view: 'emissionsIntegrityAudit', paths: ['/emissions-integrity-audit'] },
-  { label: 'Carbon MRV Engine', view: 'carbonMRV', paths: ['/carbon-mrv', '/carbon'] },
+  { label: 'Carbon DMRV Engine', view: 'carbonDMRV', paths: ['/carbon-mrv', '/carbon'] },
   { label: 'DMRV', view: 'dmrvSelector', paths: ['/dmrv'] },
   { label: 'Offsets Marketplace', view: 'offsetMarketplace', paths: ['/offsets'] },
   { label: 'Hazardous Waste Audit', view: 'hazardousWasteAudit', paths: ['/hazardous-waste-audit'] },

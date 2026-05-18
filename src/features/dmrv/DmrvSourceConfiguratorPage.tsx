@@ -207,7 +207,7 @@ function DmrvSourceConfiguratorWorkspace({
             to="/dmrv"
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
           >
-            All MRV categories
+            All DMRV categories
           </Link>
           {onReturn ? (
             <button
@@ -269,7 +269,7 @@ function DmrvSourceConfiguratorWorkspace({
             <DmrvAiConfigHelper
               variant={sourceKind === 'lidar' ? 'lidar' : 'satellite-imagery'}
               contextSummary={aiContextSummary}
-              autofillPrompt={`Suggest ${sourceKind} mission/source IDs for ${typeTitle}. Return JSON: { "selectedSourceIds": ["id1","id2"] } using catalog missions appropriate for this MRV type.`}
+              autofillPrompt={`Suggest ${sourceKind} mission/source IDs for ${typeTitle}. Return JSON: { "selectedSourceIds": ["id1","id2"] } using catalog missions appropriate for this DMRV type.`}
             />
           </div>
         </DmrvWorkflowShell>

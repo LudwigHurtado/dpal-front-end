@@ -4,7 +4,7 @@ export const businessUseCaseMap: readonly DpalBusinessUseCase[] = [
   {
     id: 'carbon_credit_integrity',
     name: 'Carbon credit integrity screening',
-    description: 'Cross-check MRV signals, public disclosures, and satellite proxies without asserting issuance or registry outcomes.',
+    description: 'Cross-check DMRV signals, public disclosures, and satellite proxies without asserting issuance or registry outcomes.',
     primaryClients: ['project_developers', 'buyers', 'auditors'],
     requiredSources: ['LANDSAT_8_9', 'NASA_HLS', 'GEDI_LIDAR', 'EPA_DATASET'],
     optionalSources: ['SENTINEL_2', 'SENTINEL_1', 'FIELD_SENSOR', 'LAB_SAMPLE', 'COMPANY_DISCLOSURE'],
@@ -70,8 +70,8 @@ export const businessUseCaseMap: readonly DpalBusinessUseCase[] = [
   },
   {
     id: 'blue_carbon_mrv',
-    name: 'Blue carbon MRV context',
-    description: 'Combine wetland extent, structure samples, and tide context for screening-level MRV inputs.',
+    name: 'Blue carbon DMRV context',
+    description: 'Combine wetland extent, structure samples, and tide context for screening-level DMRV inputs.',
     primaryClients: ['project_developers', 'governments'],
     requiredSources: ['SENTINEL_2', 'SWOT', 'WEATHER_DATA'],
     optionalSources: ['GEDI_LIDAR', 'ICESAT_2', 'NASA_HLS', 'FIELD_SENSOR', 'LAB_SAMPLE'],

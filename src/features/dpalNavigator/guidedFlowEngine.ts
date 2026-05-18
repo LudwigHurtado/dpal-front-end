@@ -34,7 +34,7 @@ const ROUTES = {
   envirofacts: "/environmental-intelligence/envirofacts-map",
   hazardousWaste: "/hazardous-waste-audit",
   carbEmissions: "/carb-emissions-audit",
-  carbonMRV: "/carbon",
+  carbonDMRV: "/carbon",
   afolu: "/afolu",
   earthObservation: "/earth-observation",
   ledger: "/transparency-db",
@@ -212,15 +212,15 @@ function buildPollutionFlow(ctx: BuildContext): GuidedFlow {
 function buildCarbonLandFlow(ctx: BuildContext): GuidedFlow {
   const carbonMrv: RecommendedModule = {
     id: "carbon-mrv",
-    label: "Carbon MRV Engine",
-    description: "Register projects, run satellite scans, and compute MRV scores for carbon and land projects.",
-    routeTarget: ROUTES.carbonMRV,
+    label: "Carbon DMRV Engine",
+    description: "Register projects, run satellite scans, and compute DMRV scores for carbon and land projects.",
+    routeTarget: ROUTES.carbonDMRV,
   };
   const afoluForest: RecommendedModule = {
     id: "afolu-forest",
     label: "Forest Integrity (AFOLU)",
     description:
-      "AFOLU Carbon & Proof Engine — missions, QR-linked assets, evidence scoring, MRV review, and buyer packaging (front-end workflow).",
+      "AFOLU Carbon & Proof Engine — missions, QR-linked assets, evidence scoring, DMRV review, and buyer packaging (front-end workflow).",
     routeTarget: ROUTES.afolu,
   };
   const prefersAfolu =
@@ -250,10 +250,10 @@ function buildCarbonLandFlow(ctx: BuildContext): GuidedFlow {
           title: "Run an Earth Observation NDVI / NBR scan if you have coordinates",
           emphasis: "recommended",
         },
-        { id: "open-mrv", title: "Open Carbon MRV Engine and check or register the project" },
+        { id: "open-mrv", title: "Open Carbon DMRV Engine and check or register the project" },
         {
           id: "stop-for-claim",
-          title: "Stop for human MRV review before claiming any carbon offset value",
+          title: "Stop for human DMRV review before claiming any carbon offset value",
           emphasis: "warning",
         },
       ];
@@ -263,12 +263,12 @@ function buildCarbonLandFlow(ctx: BuildContext): GuidedFlow {
     title: prefersAfolu ? "Forest / AFOLU Proof Path" : "Carbon / Land Investigation",
     explanation: prefersAfolu
       ? "DPAL can walk the AFOLU workspace: missions and assets, evidence scoring, reports, and a local verification PDF with QR — all advisory until humans and validators approve."
-      : "DPAL can help you check whether a land or carbon project has supporting satellite evidence and a registered MRV record.",
+      : "DPAL can help you check whether a land or carbon project has supporting satellite evidence and a registered DMRV record.",
     recommendedModule: recommended,
     routeTarget: recommended.routeTarget,
     nextBestAction: prefersAfolu
       ? "Open Forest Integrity (AFOLU), review the proof stack, and use the walkthrough if you want a guided tour through PDF + QR preview."
-      : "Run an Earth Observation scan for the AOI, then review or register the project in Carbon MRV.",
+      : "Run an Earth Observation scan for the AOI, then review or register the project in Carbon DMRV.",
     steps,
     safetyWarnings: STANDARD_SAFETY_WARNINGS,
     queryParams: buildQueryParams(ctx, prefersAfolu ? "carbon-land-afolu" : "carbon-land"),

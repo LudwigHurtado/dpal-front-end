@@ -1015,7 +1015,7 @@ export default function AquaScanView({
     navOutcome.trackOutcomeOnce({
       moduleId: 'aquascan',
       eventType: 'module_opened',
-      label: 'Opened AquaScan MRV',
+      label: 'Opened AquaScan DMRV',
       status: 'observed',
     });
   }, [navOutcome]);
@@ -1277,7 +1277,7 @@ export default function AquaScanView({
     previousComparisonSetupSignatureRef.current = currentComparisonSetupSignature;
     if (!comparisonResult && !comparisonError && validatorGateStatus === 'pending_review' && !showPacket) return;
     if ((import.meta as any).env?.DEV) {
-      console.info('[AquaScan] Cleared stale MRV result after setup change', {
+      console.info('[AquaScan] Cleared stale DMRV result after setup change', {
         index: comparisonIndexType,
         collection: comparisonCollection,
         beforeRange: { ...beforeRange },
@@ -1307,7 +1307,7 @@ export default function AquaScanView({
 
   useEffect(() => {
     if (comparisonResult) return;
-    if (/^MRV comparison completed|^Comparison completed, but no valid samples/i.test(actionNotice)) {
+    if (/^DMRV comparison completed|^Comparison completed, but no valid samples/i.test(actionNotice)) {
       setActionNotice(calculationHistory.length > 0 ? 'Previous measurements available in history.' : '');
     }
   }, [comparisonResult, actionNotice, calculationHistory.length]);
@@ -1518,7 +1518,7 @@ export default function AquaScanView({
     return [
       {
         id: 'cop',
-        label: 'Copernicus MRV',
+        label: 'Copernicus DMRV',
         state: cop,
         hint: copernicusSetup.configured ? 'AOI statistics adapter reachable' : 'Configure Copernicus proxy on API host',
       },
@@ -1611,7 +1611,7 @@ export default function AquaScanView({
       case 'layers':
         return 'Current step: Layers — select satellite layers and overlay settings for the saved AOI.';
       case 'mrv':
-        return 'Current step: MRV Compare — select index, confirm dates, run satellite comparison.';
+        return 'Current step: DMRV Compare — select index, confirm dates, run satellite comparison.';
       case 'evidence':
         return 'Current step: Evidence Packet — review indicators and generate exportable evidence.';
       case 'actions':
@@ -1713,8 +1713,8 @@ export default function AquaScanView({
       setValidatorGateStatus(item.validatorStatus);
       setActionNotice(
         sameCurrentBoundary
-          ? 'Historical MRV comparison restored. Dates and settings were loaded into the current boundary.'
-          : 'Historical MRV comparison restored. It belongs to a different AOI/date setup.'
+          ? 'Historical DMRV comparison restored. Dates and settings were loaded into the current boundary.'
+          : 'Historical DMRV comparison restored. It belongs to a different AOI/date setup.'
       );
     } else {
       setComparisonResult(null);
@@ -1918,7 +1918,7 @@ export default function AquaScanView({
       photos: [],
       measurements: overlayMeasurementRecords,
       overlays: overlayPacketRecords,
-      notes: `Indicative MRV estimate - not certified carbon credit. ${packetPreview.legalSafeNote}${comparisonResultForPacket ? ` Measurement status: ${comparisonMeasurementStatus}.` : ' Comparison dates are selected, but the satellite calculation has not been run yet.'}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: unavailable_for_current_selection). Not confirmed satellite measurements.' : ''}${comparisonResultForPacket?.warnings.length ? ` Warnings: ${comparisonResultForPacket.warnings.join(' | ')}` : ''}${comparisonResult && !hasCurrentComparisonResult ? ' Restored comparison belongs to a different AOI/date setup and is not used in this packet until the matching setup is active.' : ''}`,
+      notes: `Indicative DMRV estimate - not certified carbon credit. ${packetPreview.legalSafeNote}${comparisonResultForPacket ? ` Measurement status: ${comparisonMeasurementStatus}.` : ' Comparison dates are selected, but the satellite calculation has not been run yet.'}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: unavailable_for_current_selection). Not confirmed satellite measurements.' : ''}${comparisonResultForPacket?.warnings.length ? ` Warnings: ${comparisonResultForPacket.warnings.join(' | ')}` : ''}${comparisonResult && !hasCurrentComparisonResult ? ' Restored comparison belongs to a different AOI/date setup and is not used in this packet until the matching setup is active.' : ''}`,
     };
   }, [comparisonCollection, comparisonHasValidSamples, comparisonIndexType, comparisonMeasurementStatus, comparisonResult, comparisonResultForPacket, hasCurrentComparisonResult, inspectQualityConfidence, selectedFocusLocation, mapCenter, overlayMeasurementRecords, overlayPacketRecords, packetPreview.legalSafeNote, selectedDate, selectedProject.id, selectedProject.projectName, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product, savedAoiGeoJson]);
   const canGenerateEvidencePacket = Boolean(selectedFocusLocation && readySavedAoi);
@@ -2051,7 +2051,7 @@ export default function AquaScanView({
       body: JSON.stringify({
         projectName: draftProject.projectName,
         projectType: draftProject.waterBodyType,
-        description: `${draftProject.concernType} screening intake created from AquaScan MRV.`,
+        description: `${draftProject.concernType} screening intake created from AquaScan DMRV.`,
         country: selectedFocusLocation?.displayName.split(',').slice(-1)[0]?.trim() || '',
         region: '',
         city: draftProject.locationName,
@@ -2162,7 +2162,7 @@ export default function AquaScanView({
       setLoadedComparisonCalculationId(historyItem.calculationId);
       setIntelligenceHistoryCalculationId(historyItem.calculationId);
       setCalculationHistory((prev) => [historyItem, ...prev].slice(0, 20));
-      setActionNotice(noValidSamples ? 'Comparison completed, but no valid samples were returned for the selected windows.' : 'MRV comparison completed. Pending Validator Review.');
+      setActionNotice(noValidSamples ? 'Comparison completed, but no valid samples were returned for the selected windows.' : 'DMRV comparison completed. Pending Validator Review.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Comparison failed';
       if (/^parser_failed:/i.test(message)) {
@@ -2742,7 +2742,7 @@ export default function AquaScanView({
                   <ChevronRight className="h-3 w-3 shrink-0 opacity-60" />
                   <span className="font-semibold text-slate-200">AquaScan Water Intelligence</span>
                 </p>
-                <p className="text-sm font-bold text-slate-100">DPAL AquaScan MRV</p>
+                <p className="text-sm font-bold text-slate-100">DPAL AquaScan DMRV</p>
               </div>
             </div>
             <span className="hidden text-[10px] text-slate-500 lg:inline">
@@ -3519,10 +3519,10 @@ export default function AquaScanView({
             </p>
           </div>
 
-          {/* MRV result */}
+          {/* DMRV result */}
           {hasCurrentComparisonResult && comparisonResult ? (
             <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-2.5 text-[10px]">
-              <p className="mb-1 font-semibold uppercase tracking-wider text-emerald-300">MRV Result</p>
+              <p className="mb-1 font-semibold uppercase tracking-wider text-emerald-300">DMRV Result</p>
               <div className="space-y-0.5 text-slate-300">
                 <p>Before: {String(comparisonResult.before.mean ?? 'N/A')}</p>
                 <p>After: {String(comparisonResult.after.mean ?? 'N/A')}</p>
@@ -3666,7 +3666,7 @@ export default function AquaScanView({
               [
                 ['intake', 'Intake'],
                 ['layers', 'Layers'],
-                ['mrv', 'MRV Compare'],
+                ['mrv', 'DMRV Compare'],
                 ['evidence', 'Evidence Packet'],
                 ['actions', 'Actions'],
               ] as [typeof activeTab, string][]
@@ -3972,13 +3972,13 @@ export default function AquaScanView({
               </div>
             ) : null}
 
-            {/* -- MRV Compare Tab -- */}
+            {/* -- DMRV Compare Tab -- */}
             {activeTab === 'mrv' ? (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-slate-300">Before/after index comparison using Copernicus Statistical API</p>
                   <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                    Indicative MRV estimate - not certified carbon credit
+                    Indicative DMRV estimate - not certified carbon credit
                   </span>
                 </div>
                 <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/15 p-3 text-xs text-slate-200">
@@ -4292,12 +4292,12 @@ export default function AquaScanView({
                             accent={scenario.accent}
                             evidencePreview={{
                               location: scenario.locationLabel,
-                              timestampLabel: 'Before / after window — set in MRV Compare before calculating.',
+                              timestampLabel: 'Before / after window — set in DMRV Compare before calculating.',
                               providerSources: scenario.providerSources,
                               signalSummary:
-                                'No comparison has run yet — NDWI / NDVI / NDMI deltas will be reported after the operator runs MRV Compare.',
+                                'No comparison has run yet — NDWI / NDVI / NDMI deltas will be reported after the operator runs DMRV Compare.',
                               confidenceNote:
-                                'AquaScan readings are indicative MRV — they do not certify carbon credits or replace lab results.',
+                                'AquaScan readings are indicative DMRV — they do not certify carbon credits or replace lab results.',
                               fieldValidationStatus:
                                 'Field sampling, lab tests, or validator review are required to escalate any anomaly.',
                               qrHashStatus: 'Evidence packet hash is issued when the packet is generated in the Evidence Packet tab.',
@@ -4340,7 +4340,7 @@ export default function AquaScanView({
                     Export PDF (pending)
                   </button>
                   <span className="text-[11px] text-amber-200">
-                    Indicative MRV estimate - not certified carbon credit.
+                    Indicative DMRV estimate - not certified carbon credit.
                   </span>
                   <span className="text-[11px] text-slate-400">
                     Live-derived satellite measurements are screening indicators and require validator review, field evidence, or laboratory confirmation before official conclusions.
@@ -4655,7 +4655,7 @@ export default function AquaScanView({
 
       <EnvironmentalDisclaimerBar tone="deep">
         DPAL AquaScan provides screening indicators from satellite and workflow evidence. It does not replace laboratory
-        testing, regulatory determinations, or field validation. Indicative MRV estimates are not certified carbon credits.
+        testing, regulatory determinations, or field validation. Indicative DMRV estimates are not certified carbon credits.
       </EnvironmentalDisclaimerBar>
     </div>
   );

@@ -28,10 +28,10 @@ const MODE_GUIDANCE: Record<DpalMrvMode, string> = {
   mineral: 'Mineral Detection Mode: identify geological indicators only when verified by the supplied data; separate mineral composition from dust-source, terrain, or aerosol indicators.',
   environmental: 'Environmental Protection Mode: detect vegetation loss, fires, habitat decline, illegal activity signals, pollution, restoration potential, and biodiversity risk.',
   infrastructure: 'Infrastructure Mode: detect road damage, construction progress, structural risks, access constraints, drainage failure, and service-disruption risk.',
-  carbon: 'Carbon MRV Mode: detect vegetation health, NDVI change, land-cover risk, permanence concerns, additionality evidence, and carbon-credit credibility.',
+  carbon: 'Carbon DMRV Mode: detect vegetation health, NDVI change, land-cover risk, permanence concerns, additionality evidence, and carbon-credit credibility.',
   offset: 'Carbon Offset Mode: assess vegetation health, drought stress, permanence, leakage risk, and whether claimed impact is supported by the supplied evidence.',
   'earth-observation': 'Earth Observation Mode: interpret LEO/MEO/GEO sensing context across land, water, atmosphere, thermal, weather, and public infrastructure observations.',
-  general: 'General MRV Mode: classify the observation type from the supplied evidence and apply the strictest relevant MRV checks.',
+  general: 'General DMRV Mode: classify the observation type from the supplied evidence and apply the strictest relevant DMRV checks.',
 };
 
 const REQUIRED_STRUCTURE = `Return every answer in this exact structure:
@@ -93,7 +93,7 @@ export function buildDpalMrvPrompt({
     ? 'Keep each section brief: 1-2 bullets where possible, while preserving the required structure.'
     : 'Use concise audit-ready language. Be specific, but do not overstate what the evidence supports.';
 
-  return `You are the core intelligence of the DPAL MRV (Monitoring, Reporting, and Verification) Engine.
+  return `You are the core intelligence of the DPAL DMRV (Monitoring, Reporting, and Verification) Engine.
 
 Operate as a deployable hybrid analyst: satellite data analyst, environmental scientist, forensic auditor, infrastructure inspector, blockchain verification engine, and risk assessment specialist.
 
@@ -126,7 +126,7 @@ Latest supplied data:
 ${JSON.stringify(data || {}, null, 2)}
 
 User question:
-${userQuestion || 'Generate a complete MRV analysis for the supplied data.'}
+${userQuestion || 'Generate a complete DMRV analysis for the supplied data.'}
 
 ${REQUIRED_STRUCTURE}
 

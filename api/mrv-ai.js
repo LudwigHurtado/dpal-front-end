@@ -60,8 +60,8 @@ async function sha256(input) {
 
 function buildSystemPrompt() {
   return [
-    'You are a DPAL MRV validator assistant.',
-    'Your job is to analyze MRV evidence readiness, not to certify credits or make regulatory approvals.',
+    'You are a DPAL DMRV validator assistant.',
+    'Your job is to analyze DMRV evidence readiness, not to certify credits or make regulatory approvals.',
     'Return strict JSON only.',
     'Do not expose private hidden chain-of-thought. Instead provide a concise validatorReasoningSummary that explains the audit rationale in reviewable form.',
     'Be honest about missing data, assumptions, source limits, uncertainty, and what a human validator must verify.',
@@ -71,10 +71,10 @@ function buildSystemPrompt() {
 function buildUserPrompt(payload) {
   const context = payload?.context && typeof payload.context === 'object' ? payload.context : {};
   const text = [
-    `MRV type: ${safeText(payload?.mrvTypeTitle, 'Unknown MRV type')}`,
-    `MRV type id: ${safeText(payload?.mrvTypeId, 'unknown')}`,
+    `DMRV type: ${safeText(payload?.mrvTypeTitle, 'Unknown DMRV type')}`,
+    `DMRV type id: ${safeText(payload?.mrvTypeId, 'unknown')}`,
     `Project id: ${safeText(payload?.projectId, 'not provided')}`,
-    `Validator question: ${safeText(payload?.prompt, 'Review the MRV readiness and risks.')}`,
+    `Validator question: ${safeText(payload?.prompt, 'Review the DMRV readiness and risks.')}`,
     '',
     'Context JSON:',
     JSON.stringify(context, null, 2),
@@ -82,11 +82,11 @@ function buildUserPrompt(payload) {
     'Return this JSON shape:',
     JSON.stringify(
       {
-        summary: 'plain-language MRV answer',
+        summary: 'plain-language DMRV answer',
         validatorReasoningSummary: 'reviewable rationale summary for validators; no hidden chain-of-thought',
         evidenceReadiness: 'Ready | Partially ready | Not ready',
         missingEvidence: ['specific missing evidence item'],
-        riskFlags: ['specific MRV / data / legal risk'],
+        riskFlags: ['specific DMRV / data / legal risk'],
         recommendedNextSteps: ['concrete next step'],
         validatorQuestions: ['question a validator should ask'],
         confidence: 0.0,
@@ -150,7 +150,7 @@ function providerError(provider, model, message, startedAt) {
     finishedAt,
     latencyMs: new Date(finishedAt).getTime() - new Date(startedAt).getTime(),
     error: message,
-    summary: `${PROVIDER_LABELS[provider]} could not complete this MRV review.`,
+    summary: `${PROVIDER_LABELS[provider]} could not complete this DMRV review.`,
     validatorReasoningSummary: 'No validator rationale was stored because the provider call failed.',
     evidenceReadiness: 'Not ready',
     missingEvidence: [],
@@ -259,9 +259,9 @@ async function callAnthropic(systemPrompt, userPrompt) {
 }
 
 async function backupAuditRecord(auditRecord) {
-  const webhookUrl = process.env.MRV_AI_AUDIT_WEBHOOK_URL;
+  const webhookUrl = process.env.DMRV_AI_AUDIT_WEBHOOK_URL;
   if (!webhookUrl) {
-    return { status: 'client_backup_only', message: 'No MRV_AI_AUDIT_WEBHOOK_URL configured.' };
+    return { status: 'client_backup_only', message: 'No DMRV_AI_AUDIT_WEBHOOK_URL configured.' };
   }
 
   try {
@@ -269,14 +269,14 @@ async function backupAuditRecord(auditRecord) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: process.env.MRV_AI_AUDIT_WEBHOOK_TOKEN
-          ? `Bearer ${process.env.MRV_AI_AUDIT_WEBHOOK_TOKEN}`
+        Authorization: process.env.DMRV_AI_AUDIT_WEBHOOK_TOKEN
+          ? `Bearer ${process.env.DMRV_AI_AUDIT_WEBHOOK_TOKEN}`
           : undefined,
       },
       body: JSON.stringify(auditRecord),
     });
     if (!response.ok) throw new Error(`Webhook HTTP ${response.status}`);
-    return { status: 'server_backup_stored', message: 'Audit record sent to configured MRV backup endpoint.' };
+    return { status: 'server_backup_stored', message: 'Audit record sent to configured DMRV backup endpoint.' };
   } catch (error) {
     return { status: 'server_backup_failed', message: error?.message || 'Backup webhook failed.' };
   }
@@ -312,7 +312,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     json(res, 200, {
       ok: true,
-      endpoint: 'DPAL MRV Multi-AI Router',
+      endpoint: 'DPAL DMRV Multi-AI Router',
       providers: getAvailability(),
       models: {
         gemini: providerModel('gemini'),
@@ -361,7 +361,7 @@ export default async function handler(req, res) {
     inputHash,
     requestedProviders: providers,
     mrvTypeId: safeText(req.body?.mrvTypeId, 'unknown'),
-    mrvTypeTitle: safeText(req.body?.mrvTypeTitle, 'Unknown MRV type'),
+    mrvTypeTitle: safeText(req.body?.mrvTypeTitle, 'Unknown DMRV type'),
     projectId: safeText(req.body?.projectId, ''),
     prompt: safeText(req.body?.prompt, ''),
     context: req.body?.context || {},

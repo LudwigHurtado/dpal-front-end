@@ -500,7 +500,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
           />
           <EnvironmentalServiceCard
             title="AquaScan Water Intelligence"
-            subtitle="Water extent, flood-risk context, Copernicus MRV compare, and evidence-packet monitoring."
+            subtitle="Water extent, flood-risk context, Copernicus DMRV compare, and evidence-packet monitoring."
             badge={aquaScanBadge}
             providerSummary={lineLabel(hubCop)}
             accent="sky"
@@ -610,11 +610,11 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
       </section>
 
       <section className="mb-10 rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-black/20 md:p-6">
-        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400/95">B · Carbon &amp; MRV</h2>
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400/95">B · Carbon &amp; DMRV</h2>
         <p className="mt-1 max-w-4xl text-xs text-slate-400">Carbon intelligence, AFOLU workflows, impact units, and AOI tools — each module keeps its own validator gates.</p>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <EnvironmentalServiceCard
-            title="Carbon Intelligence &amp; MRV"
+            title="Carbon Intelligence &amp; DMRV"
             subtitle="Carbon overview, satellite reads, validator queue, and marketplace handoff when live."
             badge="Partial"
             providerSummary="Requires live /api/carbon routes on your configured API host for full depth."

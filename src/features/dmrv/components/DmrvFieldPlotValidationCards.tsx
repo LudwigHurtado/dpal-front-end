@@ -36,7 +36,7 @@ export function DmrvFieldPlotValidationCards({
   return (
     <div className="space-y-3">
       <p className="text-xs text-slate-600">
-        Validation rules explain what reviewers expect before field evidence can support satellite MRV and blockchain
+        Validation rules explain what reviewers expect before field evidence can support satellite DMRV and blockchain
         anchoring.
       </p>
       {rules.map((rule) => {

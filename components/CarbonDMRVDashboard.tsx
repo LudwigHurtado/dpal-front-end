@@ -1,11 +1,11 @@
 /**
- * DPAL Carbon MRV Engine — Frontend Dashboard
+ * DPAL Carbon DMRV Engine — Frontend Dashboard
  *
  * Views:
  *   dashboard  — overview + my projects + marketplace credits
  *   create     — register a new carbon project
- *   project    — project detail: satellite monitoring, MRV score, blockchain ledger
- *   validator  — validator queue: review MRV reports, approve/reject
+ *   project    — project detail: satellite monitoring, DMRV score, blockchain ledger
+ *   validator  — validator queue: review DMRV reports, approve/reject
  */
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense, useRef } from 'react';
 import {
@@ -15,7 +15,7 @@ import {
 } from './icons';
 import {
   API_ROUTES, apiUrl,
-  CARBON_PROJECT_DETAIL, CARBON_SATELLITE_HISTORY, CARBON_MRV_HISTORY,
+  CARBON_PROJECT_DETAIL, CARBON_SATELLITE_HISTORY, CARBON_DMRV_HISTORY,
   CARBON_CREDITS_OWNED, CARBON_PROJECTS_BY_OWNER, CARBON_PROJECT_LEDGER,
   CARBON_PROJECT_GPS,
 } from '../constants';
@@ -280,7 +280,7 @@ function buildImpactAidPrompt({
       : 'selected scan area',
     coordinates: { lat: location.lat, lng: location.lng, radiusKm },
     dataSources: [
-      mode === 'minerals' ? 'NASA EMIT or ASTER mineral adapter output' : 'Carbon MRV backend scan output',
+      mode === 'minerals' ? 'NASA EMIT or ASTER mineral adapter output' : 'Carbon DMRV backend scan output',
       'Project registration context',
       'Satellite or environmental readings supplied to the UI',
     ],
@@ -470,7 +470,7 @@ interface SatelliteSnapshot {
   isBaseline: boolean;
 }
 
-interface MRVReport {
+interface DMRVReport {
   reportId: string;
   reportDate: string;
   carbonScore: number;
@@ -508,7 +508,7 @@ interface TxRecord {
   ts: number;
 }
 
-interface CarbonMRVDashboardProps {
+interface CarbonDMRVDashboardProps {
   onReturn: () => void;
   hero?: Hero;
   onGoToMarket?: () => void;
@@ -651,7 +651,7 @@ function CreateProjectForm({ hero, onCreated, onCancel }: {
           <ChevronLeft className="w-5 h-5" />
         </button>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">DPAL Carbon MRV</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">DPAL Carbon DMRV</p>
           <h2 className="text-xl font-black text-white">Register Carbon Project</h2>
         </div>
       </div>
@@ -767,7 +767,7 @@ function CreateProjectForm({ hero, onCreated, onCancel }: {
                   <p className="text-[10px] text-slate-400">Revenue/yr est.</p>
                 </div>
               </div>
-              <p className="text-[10px] text-white/40 mt-2 text-center">Estimates at ~{pType.rate} tCO2e/acre/year, $12/tonne avg. Actual credits depend on MRV score.</p>
+              <p className="text-[10px] text-white/40 mt-2 text-center">Estimates at ~{pType.rate} tCO2e/acre/year, $12/tonne avg. Actual credits depend on DMRV score.</p>
             </div>
           )}
         </>}
@@ -775,12 +775,12 @@ function CreateProjectForm({ hero, onCreated, onCancel }: {
         {/* Step 3: Additional info */}
         {step === 3 && <>
           <div className="rounded-xl bg-sky-900/20 border border-sky-500/30 p-4 space-y-2">
-            <p className="text-xs font-black text-sky-300 uppercase tracking-wider">MRV Process Overview</p>
+            <p className="text-xs font-black text-sky-300 uppercase tracking-wider">DMRV Process Overview</p>
             {[
               ['🛰️ Baseline snapshot', 'Satellite imagery pulled to establish NDVI baseline'],
               ['📊 Monthly monitoring', 'Automated satellite comparisons track vegetation change'],
               ['🧮 Carbon scoring', 'AI calculates DPAL Carbon Score (0–100) from NDVI + alerts'],
-              ['✅ Validator review', 'Verified validator approves or rejects MRV report'],
+              ['✅ Validator review', 'Verified validator approves or rejects DMRV report'],
               ['🪙 Credit issuance', 'Verified credits issued on DPAL blockchain ledger'],
               ['🏪 Marketplace listing', 'Approved credits listed for buyers worldwide'],
             ].map(([icon, text]) => (
@@ -828,7 +828,7 @@ function CreateProjectForm({ hero, onCreated, onCancel }: {
           </div>
           <div className="rounded-xl bg-emerald-900/20 border border-emerald-500/30 p-4 text-center">
             <p className="text-2xl font-black text-emerald-400 mb-1">{estCredits.toLocaleString()} tCO2e/yr</p>
-            <p className="text-xs text-slate-400">Estimated annual credits (subject to MRV verification)</p>
+            <p className="text-xs text-slate-400">Estimated annual credits (subject to DMRV verification)</p>
           </div>
           {error && <div className="rounded-xl bg-rose-900/30 border border-rose-500/40 p-3 text-sm text-rose-300">{error}</div>}
         </>}
@@ -863,7 +863,7 @@ function CreateProjectForm({ hero, onCreated, onCancel }: {
 
 type DashView = 'dashboard' | 'create' | 'project' | 'validator';
 
-const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero, onGoToMarket, initialTab }) => {
+const CarbonDMRVDashboard: React.FC<CarbonDMRVDashboardProps> = ({ onReturn, hero, onGoToMarket, initialTab }) => {
   const navOutcome = useNavigatorOutcomeTracking('carbon_land');
   const [view, setView] = useState<DashView>('dashboard');
   const [activeTab, setActiveTab] = useState<'myprojects' | 'marketplace' | 'ledger' | 'airquality' | 'minerals'>(initialTab ?? 'myprojects');
@@ -874,7 +874,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
     navOutcome.trackOutcomeOnce({
       moduleId: 'carbon_mrv',
       eventType: 'module_opened',
-      label: 'Opened Carbon MRV Engine',
+      label: 'Opened Carbon DMRV Engine',
       status: 'observed',
     });
   }, [navOutcome]);
@@ -911,10 +911,10 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   // Selected project detail
   const [selectedProject, setSelectedProject] = useState<CarbonProject | null>(null);
   const [snapshots, setSnapshots] = useState<SatelliteSnapshot[]>([]);
-  const [mrvReports, setMrvReports] = useState<MRVReport[]>([]);
+  const [mrvReports, setMrvReports] = useState<DMRVReport[]>([]);
   const [projectTxs, setProjectTxs] = useState<TxRecord[]>([]);
   const [runningSnapshot, setRunningSnapshot] = useState(false);
-  const [runningMRV, setRunningMRV] = useState(false);
+  const [runningDMRV, setRunningDMRV] = useState(false);
   const [mrvMsg, setMrvMsg] = useState('');
 
   // Validator queue
@@ -1014,7 +1014,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   const fetchProjectDetail = useCallback(async (project: CarbonProject) => {
     const [snapRes, mrvRes, txRes] = await Promise.all([
       fetch(CARBON_SATELLITE_HISTORY(project.projectId)),
-      fetch(CARBON_MRV_HISTORY(project.projectId)),
+      fetch(CARBON_DMRV_HISTORY(project.projectId)),
       fetch(CARBON_PROJECT_LEDGER(project.projectId)),
     ]);
     if (snapRes.ok) setSnapshots((await snapRes.json()).snapshots || []);
@@ -1148,12 +1148,12 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
     finally { setRunningSnapshot(false); }
   };
 
-  const runMRV = async () => {
+  const runDMRV = async () => {
     if (!selectedProject) return;
-    setRunningMRV(true);
+    setRunningDMRV(true);
     setMrvMsg('');
     try {
-      const res = await fetch(apiUrl(API_ROUTES.CARBON_MRV_SCORE), {
+      const res = await fetch(apiUrl(API_ROUTES.CARBON_DMRV_SCORE), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId: selectedProject.projectId, validatorTrustScore: 0.5 }),
@@ -1164,10 +1164,10 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
         await fetchProjectDetail(selectedProject);
         await fetchDashboard();
       } else {
-        setMrvMsg(d.error || 'MRV failed');
+        setMrvMsg(d.error || 'DMRV failed');
       }
     } catch { setMrvMsg('Network error'); }
-    finally { setRunningMRV(false); }
+    finally { setRunningDMRV(false); }
   };
 
   const submitReview = async (reportId: string, decision: 'approved' | 'rejected') => {
@@ -1269,7 +1269,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
 
   if (view === 'project' && selectedProject) {
     const latestSnap = snapshots[0] || null;
-    const latestMRV = mrvReports[0] || null;
+    const latestDMRV = mrvReports[0] || null;
     const pType = projectTypeInfo(selectedProject.projectType);
 
     return (
@@ -1611,14 +1611,14 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
             )}
           </div>
 
-          {/* MRV Carbon Score panel */}
+          {/* DMRV Carbon Score panel */}
           <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-slate-800">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-wider">MRV Carbon Score</p>
-              <button onClick={runMRV} disabled={runningMRV || !latestSnap}
+              <p className="text-xs font-black text-slate-400 uppercase tracking-wider">DMRV Carbon Score</p>
+              <button onClick={runDMRV} disabled={runningDMRV || !latestSnap}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/20 border border-violet-500/30 text-violet-300 text-xs font-bold hover:bg-violet-500/30 transition-all disabled:opacity-50">
-                {runningMRV ? <Loader className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                Run MRV Score
+                {runningDMRV ? <Loader className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Run DMRV Score
               </button>
             </div>
 
@@ -1628,7 +1628,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
               </div>
             )}
 
-            {latestMRV ? (
+            {latestDMRV ? (
               <div className="p-4 space-y-4">
                 {/* Score display */}
                 <div className="flex items-center gap-6">
@@ -1637,13 +1637,13 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                       <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
                         <circle cx="48" cy="48" r="38" fill="none" stroke="#1e293b" strokeWidth="10" />
                         <circle cx="48" cy="48" r="38" fill="none"
-                          stroke={latestMRV.carbonScore >= 70 ? '#10b981' : latestMRV.carbonScore >= 40 ? '#f59e0b' : '#ef4444'}
+                          stroke={latestDMRV.carbonScore >= 70 ? '#10b981' : latestDMRV.carbonScore >= 40 ? '#f59e0b' : '#ef4444'}
                           strokeWidth="10"
-                          strokeDasharray={`${(latestMRV.carbonScore / 100) * 238.76} 238.76`}
+                          strokeDasharray={`${(latestDMRV.carbonScore / 100) * 238.76} 238.76`}
                           strokeLinecap="round" />
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
-                        <p className="text-2xl font-black text-white">{latestMRV.carbonScore}</p>
+                        <p className="text-2xl font-black text-white">{latestDMRV.carbonScore}</p>
                         <p className="text-[9px] text-slate-400">/ 100</p>
                       </div>
                     </div>
@@ -1653,30 +1653,30 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                     <div>
                       <div className="flex justify-between text-[10px] mb-1">
                         <span className="text-slate-400">NDVI Improvement (×40)</span>
-                        <span className="text-white font-bold">{(latestMRV.ndviImprovement * 40).toFixed(1)} pts</span>
+                        <span className="text-white font-bold">{(latestDMRV.ndviImprovement * 40).toFixed(1)} pts</span>
                       </div>
-                      {scoreBar(latestMRV.ndviImprovement)}
+                      {scoreBar(latestDMRV.ndviImprovement)}
                     </div>
                     <div>
                       <div className="flex justify-between text-[10px] mb-1">
                         <span className="text-slate-400">Protected Area (×25)</span>
-                        <span className="text-white font-bold">{(latestMRV.protectedAreaScore * 25).toFixed(1)} pts</span>
+                        <span className="text-white font-bold">{(latestDMRV.protectedAreaScore * 25).toFixed(1)} pts</span>
                       </div>
-                      {scoreBar(latestMRV.protectedAreaScore)}
+                      {scoreBar(latestDMRV.protectedAreaScore)}
                     </div>
                     <div>
                       <div className="flex justify-between text-[10px] mb-1">
                         <span className="text-slate-400">No Deforestation (×20)</span>
-                        <span className="text-white font-bold">{(latestMRV.noDeforestationScore * 20).toFixed(1)} pts</span>
+                        <span className="text-white font-bold">{(latestDMRV.noDeforestationScore * 20).toFixed(1)} pts</span>
                       </div>
-                      {scoreBar(latestMRV.noDeforestationScore)}
+                      {scoreBar(latestDMRV.noDeforestationScore)}
                     </div>
                     <div>
                       <div className="flex justify-between text-[10px] mb-1">
                         <span className="text-slate-400">Validator Trust (×15)</span>
-                        <span className="text-white font-bold">{(latestMRV.validatorTrustScore * 15).toFixed(1)} pts</span>
+                        <span className="text-white font-bold">{(latestDMRV.validatorTrustScore * 15).toFixed(1)} pts</span>
                       </div>
-                      {scoreBar(latestMRV.validatorTrustScore)}
+                      {scoreBar(latestDMRV.validatorTrustScore)}
                     </div>
                   </div>
                 </div>
@@ -1684,16 +1684,16 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 {/* Credit estimate */}
                 <div className="flex items-center gap-4 rounded-xl bg-emerald-900/20 border border-emerald-500/30 p-3">
                   <div>
-                    <p className="text-2xl font-black text-emerald-400">{latestMRV.creditEstimateTons.toLocaleString()} tCO2e</p>
+                    <p className="text-2xl font-black text-emerald-400">{latestDMRV.creditEstimateTons.toLocaleString()} tCO2e</p>
                     <p className="text-xs text-slate-400">Verified carbon credits</p>
                   </div>
                   <div className="ml-auto text-right">
-                    <p className={`text-sm font-black uppercase ${RISK_STYLE[latestMRV.riskLevel]}`}>{latestMRV.riskLevel} risk</p>
+                    <p className={`text-sm font-black uppercase ${RISK_STYLE[latestDMRV.riskLevel]}`}>{latestDMRV.riskLevel} risk</p>
                     <p className={`text-[10px] font-black px-2 py-0.5 rounded-full border inline-block mt-1
-                      ${latestMRV.status === 'validated' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                        : latestMRV.status === 'rejected' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                      ${latestDMRV.status === 'validated' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        : latestDMRV.status === 'rejected' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
                         : 'bg-amber-500/15 text-amber-300 border-amber-500/30'}`}>
-                      {latestMRV.status}
+                      {latestDMRV.status}
                     </p>
                   </div>
                 </div>
@@ -1701,14 +1701,14 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 {/* AI summary */}
                 <div className="rounded-xl bg-slate-800 p-3">
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">AI Analysis</p>
-                  <p className="text-sm text-slate-300 leading-relaxed">{latestMRV.aiSummary}</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">{latestDMRV.aiSummary}</p>
                 </div>
               </div>
             ) : (
               <div className="p-8 text-center text-slate-500 text-sm">
                 {latestSnap
-                  ? 'Satellite data ready — click "Run MRV Score" to calculate your carbon score'
-                  : 'Pull a satellite snapshot first, then run the MRV score'}
+                  ? 'Satellite data ready — click "Run DMRV Score" to calculate your carbon score'
+                  : 'Pull a satellite snapshot first, then run the DMRV score'}
               </div>
             )}
           </div>
@@ -1755,7 +1755,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
           </button>
           <div>
             <p className="text-[10px] font-black uppercase tracking-widest text-violet-400">Validator Portal</p>
-            <h2 className="text-base font-black text-white">MRV Review Queue</h2>
+            <h2 className="text-base font-black text-white">DMRV Review Queue</h2>
           </div>
           <button onClick={fetchValidatorQueue}
             className="ml-auto p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-all">
@@ -1774,7 +1774,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
           )}
 
           {validatorQueue.map((item: any) => {
-            const report: MRVReport = item;
+            const report: DMRVReport = item;
             const proj: CarbonProject = item.project;
             const snap: SatelliteSnapshot = item.snapshot;
             const pType = projectTypeInfo(proj?.projectType || 'other');
@@ -1910,7 +1910,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
             <ShieldCheck className="w-3.5 h-3.5" /> Validator
           </button>
         </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-400 mb-1">DPAL Carbon MRV Engine</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-400 mb-1">DPAL Carbon DMRV Engine</p>
         <h1 className="text-2xl md:text-3xl font-black">Carbon Impact Platform</h1>
         <p className="text-sm text-slate-300 mt-1 max-w-md">
           Satellite-verified land monitoring · AI carbon scoring · Blockchain-issued credits · Global marketplace
@@ -1967,12 +1967,12 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
 
             {!loading && projects.length === 0 && (
               <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-5 space-y-4">
-                <p className="text-xs font-black text-slate-400 uppercase tracking-wider">How the MRV Engine Works</p>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-wider">How the DMRV Engine Works</p>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { step: '1', icon: '📋', title: 'Register Project', desc: 'Submit land type, GPS boundary, and acreage' },
                     { step: '2', icon: '🛰️', title: 'Satellite Baseline', desc: 'AI pulls NDVI vegetation index for your land' },
-                    { step: '3', icon: '🧮', title: 'MRV Carbon Score', desc: 'Monthly AI scoring across 4 dimensions (0–100)' },
+                    { step: '3', icon: '🧮', title: 'DMRV Carbon Score', desc: 'Monthly AI scoring across 4 dimensions (0–100)' },
                     { step: '4', icon: '✅', title: 'Validator Approval', desc: 'Trusted validator reviews and approves report' },
                     { step: '5', icon: '🪙', title: 'Credits Issued', desc: 'Verified tCO2e minted on DPAL blockchain ledger' },
                     { step: '6', icon: '🏪', title: 'List & Trade', desc: 'Credits appear in the Carbon Market for buyers' },
@@ -2030,7 +2030,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
           <div className="p-4 md:p-6 space-y-4">
             <div className="rounded-xl bg-emerald-900/20 border border-emerald-500/30 p-4 text-center">
               <p className="text-xs font-black text-emerald-400 uppercase tracking-wider mb-1">DPAL Verified Carbon Impact Credits</p>
-              <p className="text-xs text-slate-400">All credits verified by MRV Engine + validator review. Blockchain-anchored.</p>
+              <p className="text-xs text-slate-400">All credits verified by DMRV Engine + validator review. Blockchain-anchored.</p>
             </div>
 
             {marketCredits.length === 0 && (
@@ -2508,4 +2508,4 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   );
 };
 
-export default CarbonMRVDashboard;
+export default CarbonDMRVDashboard;

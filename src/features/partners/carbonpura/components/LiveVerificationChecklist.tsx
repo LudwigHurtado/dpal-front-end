@@ -12,7 +12,7 @@ const ROUTE_CHECKS: CheckItem[] = [
   { id: 'water-monitor', label: '/water/monitor opens', path: VIEW_PATHS.waterOperationsEngine, manual: true },
   { id: 'aquascan', label: '/water/aquascan opens', path: VIEW_PATHS.aquaScanWater, manual: true },
   { id: 'plastic', label: '/hyperspectral-plastic-watch opens', path: VIEW_PATHS.hyperspectralPlasticWatch, manual: true },
-  { id: 'carbon', label: '/carbon opens', path: VIEW_PATHS.carbonMRV, manual: true },
+  { id: 'carbon', label: '/carbon opens', path: VIEW_PATHS.carbonDMRV, manual: true },
   { id: 'forest', label: '/forest-integrity opens', path: VIEW_PATHS.forestIntegrity, manual: true },
   { id: 'air', label: '/air opens', path: VIEW_PATHS.airQualityMonitor, manual: true },
   { id: 'hazard', label: '/hazardous-waste-audit opens', path: VIEW_PATHS.hazardousWasteAudit, manual: true },

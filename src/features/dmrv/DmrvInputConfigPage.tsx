@@ -560,7 +560,7 @@ export default function DmrvInputConfigPage({
   const bulkAutofillPrompt = useMemo(() => {
     if (!config) return undefined;
     if (config.configType === 'satellite') {
-      return `Suggest a complete satellite MRV configuration for ${typeTitle}. Return JSON only:
+      return `Suggest a complete satellite DMRV configuration for ${typeTitle}. Return JSON only:
 {
   "selectedSatellites": "landsat-9,sentinel-2,sentinel-1",
   "provider": "string",
@@ -885,7 +885,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]">
           <main className="space-y-4">
             {config.configType === 'satellite' ? (
-              <Panel title="Pick satellites for this MRV use" id="satellite-stack">
+              <Panel title="Pick satellites for this DMRV use" id="satellite-stack">
                 <DmrvSatellitePicker
                   selectedRaw={config.dataSourceSettings[DMRV_SATELLITE_SETTINGS_KEY]}
                   onChange={patchSatelliteSelection}
@@ -906,7 +906,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
             ) : null}
 
             {config.configType === 'lidar' ? (
-              <Panel title="Pick LiDAR sources for this MRV use" id="lidar-stack">
+              <Panel title="Pick LiDAR sources for this DMRV use" id="lidar-stack">
                 <DmrvLidarSourcePicker
                   selectedRaw={config.dataSourceSettings[DMRV_LIDAR_SETTINGS_KEY]}
                   onChange={patchLidarSelection}
@@ -986,7 +986,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
                         'What cloud cover limit is reasonable?',
                         'How do I align dates with reporting period?',
                       ]}
-                      autofillPrompt={`Suggest scene & coverage settings for ${typeTitle} satellite MRV. Return JSON with string/boolean fields only: provider, collection, startDate, endDate, cloudCoverLimit, resolution, minimumCoveragePct, refreshFrequency, aoiRequired.`}
+                      autofillPrompt={`Suggest scene & coverage settings for ${typeTitle} satellite DMRV. Return JSON with string/boolean fields only: provider, collection, startDate, endDate, cloudCoverLimit, resolution, minimumCoveragePct, refreshFrequency, aoiRequired.`}
                       onApply={applySceneSettings}
                       onAnimatedApply={handleAnimatedSceneAutofill}
                     />
@@ -1105,7 +1105,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
                   />
                   <DmrvFieldPlotSectionHelper
                     title="Validation Rules"
-                    intro="These rules show what reviewers expect before field evidence supports satellite MRV and blockchain anchoring."
+                    intro="These rules show what reviewers expect before field evidence supports satellite DMRV and blockchain anchoring."
                     sectionId="validation"
                     contextSummary={evidenceRulesContext}
                     disabled={!!busy}
@@ -1122,7 +1122,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
                   contextSummary={evidenceRulesContext}
                   disabled={!!busy}
                   starters={[
-                    'What rules should forest satellite MRV use?',
+                    'What rules should forest satellite DMRV use?',
                     'When is before/after comparison required?',
                   ]}
                   autofillPrompt={`Suggest validation rule booleans for ${typeTitle} satellite evidence. Return JSON with only boolean keys: requireCoordinates, requireTimestamp, requireSourceDocument, requireReviewerApproval, requireFieldVerification, requireBeforeAfterComparison, requireAnomalyDetection, requireUncertaintyScore.`}
@@ -1153,7 +1153,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
                     'What should the evidence packet title say?',
                     'Should map snapshots be included?',
                   ]}
-                  autofillPrompt={`Suggest evidence packet settings for ${typeTitle} satellite MRV. Return JSON: title (string), publicVisibility (private|validator_only|public), includeMapSnapshot, includeRawDataReference, includeReviewerNotes, includeAttachments, generateQrCode (booleans).`}
+                  autofillPrompt={`Suggest evidence packet settings for ${typeTitle} satellite DMRV. Return JSON: title (string), publicVisibility (private|validator_only|public), includeMapSnapshot, includeRawDataReference, includeReviewerNotes, includeAttachments, generateQrCode (booleans).`}
                   onApply={applyEvidencePacket}
                 />
               ) : null}

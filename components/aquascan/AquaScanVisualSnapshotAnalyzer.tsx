@@ -59,7 +59,7 @@ async function prepareImageForVision(dataUrl: string): Promise<{ mimeType: strin
 
 function buildVisionSystemPrompt(workspaceContext: string, userFocus: string): string {
   const focus = userFocus.trim() || 'General interpretation of this map or satellite view for water screening.';
-  return `You are assisting an operator using DPAL AquaScan (water MRV screening). They uploaded a screenshot or map snapshot.
+  return `You are assisting an operator using DPAL AquaScan (water DMRV screening). They uploaded a screenshot or map snapshot.
 
 Workspace context (numeric indices and metadata — use as supporting context, not as proof of on-the-ground chemistry):
 ---

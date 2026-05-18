@@ -65,10 +65,10 @@ export const DPAL_INFOGRAPHICS: DpalInfographicItem[] = [
   },
   {
     id: 'aquascan-mrv',
-    title: 'DPAL AquaScan MRV',
+    title: 'DPAL AquaScan DMRV',
     group: 'environmental',
     imageSrc: '/dpal-infographics/aquascan-mrv.png',
-    shortLabel: 'AquaScan MRV',
+    shortLabel: 'AquaScan DMRV',
   },
   {
     id: 'gaming-nft-revenue',
@@ -128,10 +128,10 @@ export const DPAL_INFOGRAPHICS: DpalInfographicItem[] = [
   },
   {
     id: 'carbon-viu-mrv',
-    title: 'DPAL Carbon, VIU & MRV Services',
+    title: 'DPAL Carbon, VIU & DMRV Services',
     group: 'environmental',
     imageSrc: '/dpal-infographics/carbon-viu-mrv.png',
-    shortLabel: 'Carbon & VIU MRV',
+    shortLabel: 'Carbon & VIU DMRV',
   },
   {
     id: 'public-accountability-library',

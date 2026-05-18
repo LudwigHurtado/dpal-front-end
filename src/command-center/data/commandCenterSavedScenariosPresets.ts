@@ -56,7 +56,7 @@ export const COMMAND_CENTER_SAVED_SCENARIO_PRESETS: CommandCenterSavedScenarioPr
     radiusKm: 45,
     defaultModules: ['forestIntegrity', 'earthObservation', 'carbonViu', 'situationRoom'],
     limitationNote:
-      'AFOLU and Forest Integrity UIs are separate entry points — this preset centers forest + MRV context without inventing sequestration numbers.',
+      'AFOLU and Forest Integrity UIs are separate entry points — this preset centers forest + DMRV context without inventing sequestration numbers.',
     primaryWorkspace: 'forestIntegrity',
   },
   {

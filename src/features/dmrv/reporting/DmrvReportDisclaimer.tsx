@@ -24,7 +24,7 @@ export function DmrvReportDisclaimer({
     >
       <p className="font-semibold">dMRV evidence disclaimer</p>
       <p className={compact ? 'mt-1' : 'mt-1.5'}>
-        This report is a digital MRV evidence package. It is not a certified carbon credit issuance document unless
+        This report is a digital DMRV evidence package. It is not a certified carbon credit issuance document unless
         reviewed and accepted under an applicable carbon standard, methodology, registry, and VVB process.
         {categoryNote}
       </p>

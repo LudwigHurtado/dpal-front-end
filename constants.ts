@@ -104,10 +104,10 @@ export const API_ROUTES = {
   OFFSETS_ACTIVITY: '/api/offsets/activity/feed',
   OFFSETS_PARCELS: '/api/offsets/parcels',
   OFFSETS_PARCELS_REGISTER: '/api/offsets/parcels/register',
-  /** Carbon MRV Engine */
+  /** Carbon DMRV Engine */
   CARBON_PROJECTS: '/api/carbon/projects',
   CARBON_SATELLITE_SNAPSHOT: '/api/carbon/satellite/snapshot',
-  CARBON_MRV_SCORE: '/api/carbon/mrv/score',
+  CARBON_DMRV_SCORE: '/api/carbon/mrv/score',
   CARBON_MARKETPLACE: '/api/carbon/marketplace',
   CARBON_MARKETPLACE_LIST: '/api/carbon/marketplace/list',
   CARBON_MARKETPLACE_BUY: '/api/carbon/marketplace/buy',
@@ -143,8 +143,8 @@ export const API_ROUTES = {
   DPAL_ASSISTANT_PROJECT_GUIDE: '/api/dpal-assistant/project-guide',
   /** Living dMRV report JSON (structured report object, versions, anchors) */
   DMRV_REPORTS: '/api/dmrv/reports',
-  /** MRV Super Agent — schedules, runs, notifications (backend Prisma) */
-  MRV_PROJECTS: '/api/mrv/projects',
+  /** DMRV Super Agent — schedules, runs, notifications (backend Prisma) */
+  DMRV_PROJECTS: '/api/mrv/projects',
   /** POST — AI Report Reader (Gemini when configured; deterministic fallback). */
   DPAL_ASSISTANT_REPORT_READER_CHAT: '/api/dpal-assistant/report-reader/chat',
   /** DPAL Assistant structured chat + audit-safe rationale (repo backend/) */
@@ -238,7 +238,7 @@ export const OFFSETS_COALITION = (projectId: string) => apiUrl(`/api/offsets/coa
 export const OFFSETS_MY_PARCELS = (heroId: string) => apiUrl(`/api/offsets/parcels?heroId=${encodeURIComponent(heroId)}`);
 export const CARBON_PROJECT_DETAIL = (projectId: string) => apiUrl(`/api/carbon/projects/${encodeURIComponent(projectId)}`);
 export const CARBON_SATELLITE_HISTORY = (projectId: string) => apiUrl(`/api/carbon/satellite/${encodeURIComponent(projectId)}`);
-export const CARBON_MRV_HISTORY = (projectId: string) => apiUrl(`/api/carbon/mrv/${encodeURIComponent(projectId)}`);
+export const CARBON_DMRV_HISTORY = (projectId: string) => apiUrl(`/api/carbon/mrv/${encodeURIComponent(projectId)}`);
 export const CARBON_CREDITS_OWNED = (userId: string) => apiUrl(`/api/carbon/credits/${encodeURIComponent(userId)}`);
 export const CARBON_PROJECT_LEDGER = (projectId: string) => apiUrl(`/api/carbon/ledger/${encodeURIComponent(projectId)}`);
 export const CARBON_PROJECTS_BY_OWNER = (ownerId: string) => apiUrl(`/api/carbon/projects?ownerId=${encodeURIComponent(ownerId)}`);

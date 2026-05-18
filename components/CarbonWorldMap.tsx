@@ -1,5 +1,5 @@
 /**
- * CarbonWorldMap — Leaflet world map for Carbon MRV project pins.
+ * CarbonWorldMap — Leaflet world map for Carbon DMRV project pins.
  * Lazy-loaded. Free CartoDB dark tiles. No API key.
  */
 import React from 'react';

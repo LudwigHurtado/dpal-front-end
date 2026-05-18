@@ -62,7 +62,7 @@ export function DmrvSatellitePicker({ selectedRaw, onChange }: DmrvSatellitePick
       <div className="rounded-xl border border-[#1e3a5f]/15 bg-gradient-to-br from-[#e8f0f7] to-white px-4 py-3">
         <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#1e3a5f]">Satellite stack</p>
         <p className="mt-1 text-sm text-slate-700">
-          Pick one or more missions for this MRV project. Each card shows the spacecraft used for that data source.
+          Pick one or more missions for this DMRV project. Each card shows the spacecraft used for that data source.
         </p>
         <p className="mt-2 text-xs text-slate-500">
           {selectedIds.length === 0
@@ -117,7 +117,7 @@ export function DmrvSatellitePicker({ selectedRaw, onChange }: DmrvSatellitePick
               <div className="flex flex-1 flex-col gap-2 p-3">
                 <p className="text-xs leading-relaxed text-slate-700">{mission.description}</p>
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-wide text-slate-500">Typical MRV uses</p>
+                  <p className="text-[9px] font-black uppercase tracking-wide text-slate-500">Typical DMRV uses</p>
                   <ul className="mt-1 space-y-0.5">
                     {mission.mrvUses.slice(0, 3).map((use) => (
                       <li key={use} className="flex items-start gap-1 text-[10px] text-slate-600">

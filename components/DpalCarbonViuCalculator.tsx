@@ -189,7 +189,7 @@ const placePresets: PlacePreset[] = [
     communityPartner: 'Chiquitano stewardship council',
     landControlBasis: 'Community stewardship agreement',
     interventionType: 'Dry forest restoration and fire recovery planting',
-    projectSummary: 'Restore dry forest structure, reduce disturbance pressure, and monitor recovery through AOI-linked evidence and verification-ready MRV.',
+    projectSummary: 'Restore dry forest structure, reduce disturbance pressure, and monitor recovery through AOI-linked evidence and verification-ready DMRV.',
     boundaryName: 'Dry Forest Block B',
     boundaryEvidence: 'Community walkover, parcel sketch, and restoration boundary notes',
     aoiId: 'AOI-DPAL-SCF-002-B',
@@ -1008,7 +1008,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   const [imageryStartDate, setImageryStartDate] = useState('2025-01-01');
   const [imageryEndDate, setImageryEndDate] = useState('2026-01-01');
   const [dataSourceStack, setDataSourceStack] = useState('Sentinel-2 NDVI + canopy height + field correction + verifier package');
-  const [aiModelVersion, setAiModelVersion] = useState('DPAL-AOI-MRV-v0.3');
+  const [aiModelVersion, setAiModelVersion] = useState('DPAL-AOI-DMRV-v0.3');
   const [lastAiScanAt, setLastAiScanAt] = useState('2026-04-23 09:15');
   const [lastHumanVerifiedAt, setLastHumanVerifiedAt] = useState('2026-04-20 14:30');
   const [activeMapLayer, setActiveMapLayer] = useState<DataLayer>('ndvi');
@@ -1761,7 +1761,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
               <button onClick={onLaunchMission} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500">Launch Evidence Mission</button>
-              <button onClick={onRunMrv} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">Run MRV Review</button>
+              <button onClick={onRunMrv} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">Run DMRV Review</button>
               <button onClick={onPreparePackage} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">Prepare Buyer Package</button>
             </div>
           </div>
@@ -2547,13 +2547,13 @@ Net = Project Gain - Baseline Gain - Leakage - Uncertainty - Buffer - Other`}
                 <div className="mt-3 grid gap-2">
                   <SummaryRow label="Evidence Vault" value="Upload, hash, geo-tag, and link evidence directly to the AOI" />
                   <SummaryRow label="Timeline slider" value="Compare imagery snapshots by date and show AOI change over time" />
-                  <SummaryRow label="Live API integration" value="Replace prototype readings with MRV responses and live analysis metadata" />
+                  <SummaryRow label="Live API integration" value="Replace prototype readings with DMRV responses and live analysis metadata" />
                 </div>
               </div>
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <button onClick={onLaunchMission} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500"><Target className="mr-2 inline h-4 w-4" />Mission</button>
-              <button onClick={onRunMrv} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500"><ShieldCheck className="mr-2 inline h-4 w-4" />MRV</button>
+              <button onClick={onRunMrv} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500"><ShieldCheck className="mr-2 inline h-4 w-4" />DMRV</button>
               <button onClick={onPreparePackage} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500"><MapPin className="mr-2 inline h-4 w-4" />Package</button>
             </div>
           </Panel>

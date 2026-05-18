@@ -110,7 +110,7 @@ export function GlobalIntelligenceMapPreview({
               <p className="font-semibold text-white">AOI &amp; layer context</p>
               <p className="mt-2 text-xs leading-relaxed text-slate-300">
                 Illustrative grid — project AOIs, evidence pins, and module overlays render inside each live engine (Water
-                Monitor, AquaScan, Plastic Watch, Carbon MRV, Forest Integrity, Air, Hazardous Waste).
+                Monitor, AquaScan, Plastic Watch, Carbon DMRV, Forest Integrity, Air, Hazardous Waste).
               </p>
             </div>
           </div>

@@ -91,7 +91,7 @@ export function CarbonPuraHeader({ onReturn, viewMode, onViewModeChange }: Carbo
             </h1>
             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
               Powered by DPAL — launch water monitoring, AquaScan satellite analysis, PACE plastic intelligence, carbon
-              MRV, forest integrity, air quality, hazardous waste audits, GeoLedger evidence, and registry-ready
+              DMRV, forest integrity, air quality, hazardous waste audits, GeoLedger evidence, and registry-ready
               reporting from existing live engines.
             </p>
           </div>

@@ -187,12 +187,12 @@ const CARBON_PROJECTS: DpalCarbonProject[] = [
 const ACTIVITY_FEED = [
   { type: 'credit_issued',   icon: Award,        color: 'text-emerald-300', project: 'Amazon Edge Forest Protection', detail: '120 new credits issued',                          time: '2h ago'  },
   { type: 'mission_done',    icon: CheckCircle,  color: 'text-sky-300',     project: 'Watershed Agroforestry Belt',   detail: 'Plant Trees mission verified — 340 seedlings',     time: '4h ago'  },
-  { type: 'validation',      icon: ShieldCheck,  color: 'text-lime-300',    project: 'Fire Recovery Nursery',         detail: 'MRV package approved by validator',                time: '6h ago'  },
+  { type: 'validation',      icon: ShieldCheck,  color: 'text-lime-300',    project: 'Fire Recovery Nursery',         detail: 'DMRV package approved by validator',                time: '6h ago'  },
   { type: 'buyer_match',     icon: Users,        color: 'text-fuchsia-300', project: 'Borneo Peatland Protection',    detail: 'Pacific Carbon Trust matched — 500 credits',       time: '8h ago'  },
   { type: 'satellite',       icon: Globe,        color: 'text-cyan-300',    project: 'Nairobi Solar District',        detail: 'NDVI scan completed — 0.71 vegetation index',      time: '10h ago' },
   { type: 'credit_retired',  icon: FileText,     color: 'text-amber-300',   project: 'Patagonia Wetland Restoration', detail: '200 credits retired by Alpine Foods Group',        time: '1d ago'  },
   { type: 'new_project',     icon: Plus,         color: 'text-violet-300',  project: 'Jakarta Urban Canopy',          detail: 'Mission stage launched — 4 active missions',       time: '1d ago'  },
-  { type: 'mrv_complete',    icon: Database,     color: 'text-rose-300',    project: 'Punjab Biogas Network',         detail: 'MRV baseline model completed — confidence 81%',    time: '2d ago'  },
+  { type: 'mrv_complete',    icon: Database,     color: 'text-rose-300',    project: 'Punjab Biogas Network',         detail: 'DMRV baseline model completed — confidence 81%',    time: '2d ago'  },
   { type: 'credit_issued',   icon: Award,        color: 'text-emerald-300', project: 'Nairobi Solar District',        detail: '85 avoidance credits issued — Q1 output verified', time: '2d ago'  },
   { type: 'satellite',       icon: Globe,        color: 'text-cyan-300',    project: 'Amazon Edge Forest',            detail: 'Canopy recovery confirmed — no deforestation signal', time: '3d ago' },
 ];
@@ -202,7 +202,7 @@ const ACTIVITY_FEED = [
 ───────────────────────────────────────────── */
 const VALIDATOR_QUEUE = [
   { project: 'Amazon Edge Forest Protection',  type: 'Evidence Review',       priority: 'High',   daysOpen: 1,  credits: 120  },
-  { project: 'Punjab Biogas Capture Network',  type: 'MRV Baseline Submission', priority: 'Medium', daysOpen: 3, credits: 640  },
+  { project: 'Punjab Biogas Capture Network',  type: 'DMRV Baseline Submission', priority: 'Medium', daysOpen: 3, credits: 640  },
   { project: 'Jakarta Urban Canopy Initiative', type: 'Satellite Confirmation', priority: 'Medium', daysOpen: 4, credits: 280  },
   { project: 'Watershed Agroforestry Belt',    type: 'Plot Survival Check',    priority: 'Low',    daysOpen: 6,  credits: 65   },
   { project: 'Borneo Peatland Protection',     type: 'Boundary Anomaly Review', priority: 'High',  daysOpen: 2,  credits: 200  },
@@ -230,7 +230,7 @@ const HOW_IT_WORKS = [
   { label: 'Project',      detail: 'A carbon project is structured around a registered area and methodology.' },
   { label: 'Evidence',     detail: 'DPAL missions collect photos, logs, plot checks, and QR-verified scans.' },
   { label: 'Monitoring',   detail: 'Satellite and AI continuously watch canopy, water, and disturbance signals.' },
-  { label: 'Verification', detail: 'Validators review the proof stack and the MRV engine scores each batch.' },
+  { label: 'Verification', detail: 'Validators review the proof stack and the DMRV engine scores each batch.' },
   { label: 'Credits',      detail: 'Verified impact is issued as blockchain-anchored DPAL carbon credits.' },
   { label: 'Marketplace',  detail: 'Credits are listed for corporate buyers, registries, and retail offset programs.' },
 ];
@@ -529,7 +529,7 @@ const QrReportModal: React.FC<{ project: DpalCarbonProject; onClose: () => void 
                   <p className="mt-0.5 text-xs font-bold text-emerald-300">Awaiting Review</p>
                 </div>
               </div>
-              <p className="text-xs text-slate-500">A DPAL validator will review this submission within 24–48 hours. Once approved, eligible evidence contributes to the project's MRV score.</p>
+              <p className="text-xs text-slate-500">A DPAL validator will review this submission within 24–48 hours. Once approved, eligible evidence contributes to the project's DMRV score.</p>
             </div>
           )}
         </div>
@@ -598,8 +598,8 @@ const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
 
   const PLATFORM_MODULES = [
     { id: 'afolu',   name: 'Forest Integrity',    desc: 'AFOLU projects, patrol missions, proof, and buyer packages.',         icon: Globe,        accent: 'text-emerald-300', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', onClick: onGoToAfolu,                             status: 'Live'         },
-    { id: 'water',   name: 'DPAL Water Command Center', desc: 'AquaScan MRV and Water Operations Engine for water evidence and operations.', icon: Droplets, accent: 'text-cyan-300', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10', onClick: onGoToAquaScanWater ?? onGoToWater, status: 'Live' },
-    { id: 'carbon',  name: 'Carbon MRV Engine',    desc: 'Register projects, run MRV reviews, and generate credit packages.',   icon: Database,     accent: 'text-sky-300',     border: 'border-sky-500/30',     bg: 'bg-sky-500/10',     onClick: onGoToCarbon,                            status: 'Live'         },
+    { id: 'water',   name: 'DPAL Water Command Center', desc: 'AquaScan DMRV and Water Operations Engine for water evidence and operations.', icon: Droplets, accent: 'text-cyan-300', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10', onClick: onGoToAquaScanWater ?? onGoToWater, status: 'Live' },
+    { id: 'carbon',  name: 'Carbon DMRV Engine',    desc: 'Register projects, run DMRV reviews, and generate credit packages.',   icon: Database,     accent: 'text-sky-300',     border: 'border-sky-500/30',     bg: 'bg-sky-500/10',     onClick: onGoToCarbon,                            status: 'Live'         },
     { id: 'offsets', name: 'Carbon Marketplace',   desc: 'Buy, sell, and retire verified carbon credits on the open market.',  icon: Award,        accent: 'text-amber-300',   border: 'border-amber-500/30',   bg: 'bg-amber-500/10',   onClick: onGoToOffsets,                           status: 'Live'         },
     { id: 'ecology', name: 'Ecological Conservation', desc: 'Landsat foliage scans, NDVI mapping, and habitat risk analysis.',  icon: Activity,     accent: 'text-lime-300',    border: 'border-lime-500/30',    bg: 'bg-lime-500/10',    onClick: onGoToEcology ?? (() => {}),             status: onGoToEcology ? 'Live' : 'Explore' },
     { id: 'missions',name: 'Missions Hub',          desc: 'Launch, track, and validate field missions across all categories.',  icon: Target,       accent: 'text-violet-300',  border: 'border-violet-500/30',  bg: 'bg-violet-500/10',  onClick: onGoToMissions ?? (() => {}),            status: onGoToMissions ? 'Live' : 'Explore' },
@@ -699,7 +699,7 @@ const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
             </div>
           </div>
           <div className="hidden gap-2 sm:flex flex-wrap">
-            <button onClick={onGoToCarbon}  className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:border-slate-500 hover:text-white transition">MRV Engine</button>
+            <button onClick={onGoToCarbon}  className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:border-slate-500 hover:text-white transition">DMRV Engine</button>
             <button onClick={onGoToOffsets} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:border-slate-500 hover:text-white transition">Marketplace</button>
             <button onClick={() => setView('calculator')} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-300 hover:border-slate-500 hover:text-white transition">Calculator</button>
             <button onClick={onGoToAfolu}   className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-200 hover:border-emerald-400 transition">Forest Integrity</button>
@@ -718,7 +718,7 @@ const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
               Turn verified real-world action into measurable climate credits.
             </h2>
             <p className="mt-4 text-base text-slate-300">
-              Every project, mission, and satellite reading feeds the MRV engine. Every verified outcome becomes a tradeable carbon credit. Every QR scan on the ground connects a field worker to the proof chain.
+              Every project, mission, and satellite reading feeds the DMRV engine. Every verified outcome becomes a tradeable carbon credit. Every QR scan on the ground connects a field worker to the proof chain.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-3">
               <button onClick={() => categorySectionRef.current?.scrollIntoView({ behavior: 'smooth' })} className="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-emerald-500 transition">Explore Categories</button>
@@ -786,7 +786,7 @@ const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">Carbon Credit Categories</p>
               <h3 className="mt-1 text-2xl font-black text-white">{HQ_CATEGORIES.length} active methodologies</h3>
             </div>
-            <p className="hidden text-xs text-slate-500 sm:block">Each generates verified credits through the DPAL proof-and-MRV engine.</p>
+            <p className="hidden text-xs text-slate-500 sm:block">Each generates verified credits through the DPAL proof-and-DMRV engine.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {HQ_CATEGORIES.map((cat) => {
@@ -897,7 +897,7 @@ const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
                   {(proj.category === 'water') && (
                     <>
                       <button onClick={onGoToAquaScanWater ?? onGoToWater} className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 hover:border-cyan-500 hover:text-cyan-200 transition">
-                        Open AquaScan MRV
+                        Open AquaScan DMRV
                       </button>
                       <button onClick={onGoToWaterOperationsEngine ?? onGoToWater} className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 hover:border-cyan-500 hover:text-cyan-200 transition">
                         Open Water Operations Engine
@@ -1003,7 +1003,7 @@ const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
                 </div>
               ))}
               <button onClick={onGoToCarbon} className="w-full rounded-xl border border-slate-700 bg-slate-900 py-3 text-xs font-bold text-slate-300 hover:border-slate-500 hover:text-white transition">
-                Open MRV Engine for full queue →
+                Open DMRV Engine for full queue →
               </button>
             </div>
           </div>
@@ -1075,13 +1075,13 @@ const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
               Report → Project → Evidence → Monitoring → Verification → Credits → Marketplace
             </p>
             <p className="mt-2 text-center text-xs text-slate-400">
-              Every step is anchored on the DPAL ledger. Field workers scan project QR codes to start evidence flows on any device. Validators review the proof. The MRV engine issues credits. Buyers access the marketplace.
+              Every step is anchored on the DPAL ledger. Field workers scan project QR codes to start evidence flows on any device. Validators review the proof. The DMRV engine issues credits. Buyers access the marketplace.
             </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 { label: 'Start a Project',    action: onGoToAfolu,              tone: 'bg-emerald-600 hover:bg-emerald-500 text-white' },
                 { label: 'Estimate Credits',   action: () => setView('calculator'), tone: 'border border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-500 hover:text-white' },
-                { label: 'Open MRV Engine',    action: onGoToCarbon,             tone: 'border border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-500 hover:text-white' },
+                { label: 'Open DMRV Engine',    action: onGoToCarbon,             tone: 'border border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-500 hover:text-white' },
                 { label: 'Browse Marketplace', action: onGoToOffsets,            tone: 'border border-slate-700 bg-slate-900 text-slate-200 hover:border-slate-500 hover:text-white' },
               ].map((btn) => (
                 <button key={btn.label} onClick={btn.action} className={`rounded-xl px-4 py-3 text-sm font-bold transition ${btn.tone}`}>

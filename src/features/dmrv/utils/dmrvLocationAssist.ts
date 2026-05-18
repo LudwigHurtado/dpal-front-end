@@ -47,7 +47,7 @@ export function suggestDmrvProjectName(params: {
         : ` · ~${params.areaKm2.toFixed(1)} km²`;
   }
   if (place) {
-    return `${place} — ${typePart} MRV${areaPart}`.slice(0, 140);
+    return `${place} — ${typePart} DMRV${areaPart}`.slice(0, 140);
   }
   return `${params.categoryTitle} — ${typePart} Project${areaPart}`.slice(0, 140);
 }
@@ -76,7 +76,7 @@ function domainForCategory(categorySlug: string): DmrvMethodologyDomain {
   return 'custom';
 }
 
-export function buildDmrvLocationSuggestions(params: {
+export function builDMRVLocationSuggestions(params: {
   placeLabel: string | null;
   categorySlug: string;
   categoryTitle: string;
@@ -100,7 +100,7 @@ export function buildDmrvLocationSuggestions(params: {
     `DPAL screening project for ${params.typeTitle} at ${region || 'the selected map location'}.`,
     params.hasPolygon
       ? `AOI polygon captured on the project map (~${params.areaKm2 > 0 ? `${params.areaKm2.toFixed(2)} km²` : 'area pending'}).`
-      : 'Map center point saved — draw a polygon when a boundary is required for satellite MRV.',
+      : 'Map center point saved — draw a polygon when a boundary is required for satellite DMRV.',
     'Configure satellite sources next; evidence packets and blockchain identity anchor use this project context.',
   ].join(' ');
 
@@ -118,7 +118,7 @@ export function buildDmrvLocationSuggestions(params: {
     suggestedStandardFramework:
       preset?.status === 'external-standard-aligned'
         ? 'Reference-aligned (verify registry rules before claims)'
-        : 'DPAL pilot MRV screening',
+        : 'DPAL pilot DMRV screening',
     suggestedDomain: domainForCategory(params.categorySlug),
     suggestedEvidenceSources: preset?.compatibleEvidenceSources.join(', ') ?? 'Satellite Imagery, Field plots',
     areaKm2: params.areaKm2,

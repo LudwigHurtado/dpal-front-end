@@ -57,7 +57,7 @@ export const DMRV_TYPE_HELPER_COPY: Record<string, { satellite?: string; lidar?:
     satellite:
       'Recommended stack: Sentinel-2 and Landsat for optical vegetation change, Sentinel-1/NISAR/Biomass for radar-based structure and disturbance, GEDI/ICESat-2 for canopy height, and ECOSTRESS for drought or water-stress context.',
     lidar:
-      'LiDAR sources provide 3D structure: canopy height, terrain elevation, biomass validation, and field-level point-cloud evidence. For forest carbon, USGS 3DEP supports canopy/terrain context, but biomass calculations still need your selected MRV methodology.',
+      'LiDAR sources provide 3D structure: canopy height, terrain elevation, biomass validation, and field-level point-cloud evidence. For forest carbon, USGS 3DEP supports canopy/terrain context, but biomass calculations still need your selected DMRV methodology.',
   },
   agriculture: {
     satellite:

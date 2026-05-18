@@ -209,7 +209,7 @@ interface RegisterForm {
 interface OffsetMarketplaceViewProps {
   onReturn: () => void;
   hero?: Hero;
-  onGoToMRV?: () => void;
+  onGoToDMRV?: () => void;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -648,7 +648,7 @@ function RegisterModal({ hero, onClose, onSuccess }: RegisterModalProps) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn, hero, onGoToMRV }) => {
+const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn, hero, onGoToDMRV }) => {
   // Data state
   const [projects, setProjects] = useState<OffsetProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1003,10 +1003,10 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
             className="absolute top-4 left-4 p-2 rounded-xl bg-black/40 hover:bg-black/60 backdrop-blur border border-white/10 transition-all">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          {onGoToMRV && (
-            <button onClick={onGoToMRV}
+          {onGoToDMRV && (
+            <button onClick={onGoToDMRV}
               className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 backdrop-blur border border-teal-500/40 text-teal-300 text-xs font-bold transition-all">
-              <Activity className="w-3.5 h-3.5" /> MRV Engine
+              <Activity className="w-3.5 h-3.5" /> DMRV Engine
             </button>
           )}
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-400 mb-1">DPAL Green Network</p>
@@ -1543,7 +1543,7 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
                 {[
                   { icon: '🌍', value: '3.5B acres', label: 'degraded land that could earn credits' },
                   { icon: '💰', value: '$50B+', label: 'voluntary market by 2030 (from $2B today)' },
-                  { icon: '🛰️', value: '30 day', label: 'satellite MRV cycle — no manual surveys' },
+                  { icon: '🛰️', value: '30 day', label: 'satellite DMRV cycle — no manual surveys' },
                   { icon: '🔗', value: 'On-chain', label: 'immutable retirement certificates' },
                 ].map((s) => (
                   <div key={s.label} className="rounded-xl bg-black/30 border border-white/5 p-3">
@@ -1571,14 +1571,14 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
               </button>
             )}
 
-            {/* Cross-link to MRV Engine */}
-            {onGoToMRV && (
+            {/* Cross-link to DMRV Engine */}
+            {onGoToDMRV && (
               <button
-                onClick={onGoToMRV}
+                onClick={onGoToDMRV}
                 className="w-full mt-3 py-3 rounded-2xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 font-bold text-sm transition-all flex items-center justify-center gap-2"
               >
                 <Activity className="w-4 h-4" />
-                Already have land? Use the full Carbon MRV Engine →
+                Already have land? Use the full Carbon DMRV Engine →
               </button>
             )}
 
@@ -1733,7 +1733,7 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
               </p>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { icon: '🛰️', label: 'Satellite MRV', desc: 'Automated NDVI monitoring every 30 days — no expensive field surveys' },
+                  { icon: '🛰️', label: 'Satellite DMRV', desc: 'Automated NDVI monitoring every 30 days — no expensive field surveys' },
                   { icon: '🤖', label: 'AI Carbon Score', desc: '0–100 score across 4 dimensions: NDVI, protected area, deforestation, validator trust' },
                   { icon: '🔗', label: 'Blockchain Ledger', desc: 'Every credit issued, traded, and retired is immutably recorded on-chain' },
                   { icon: '🌐', label: 'Open Marketplace', desc: 'Any verified landowner lists credits; any buyer worldwide purchases and retires them' },
@@ -1791,7 +1791,7 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
                     def: 'A carbon offset is only valid if the sequestration would NOT have happened without the project. DPAL\'s satellite baseline proves this — we capture the state of the land before and after.',
                   },
                   {
-                    term: 'MRV — Measurement, Reporting & Verification',
+                    term: 'DMRV — Digital Measurement, Reporting & Verification',
                     color: 'border-violet-500/30 bg-violet-900/10',
                     labelColor: 'text-violet-400',
                     def: 'The three pillars of a credible carbon credit. DPAL automates all three: satellite NDVI measures vegetation change, AI generates the report, and trusted validators verify it — no expensive consultants required.',
@@ -1866,7 +1866,7 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
                 {[
                   { label: 'Verification cost',       verra: '$50K–$200K',     gold: '$80K–$250K',    dpal: 'Free (satellite)' },
                   { label: 'Time to first credit',     verra: '12–24 months',   gold: '18–36 months',  dpal: '30–90 days' },
-                  { label: 'MRV method',               verra: 'Manual surveys', gold: 'Manual surveys', dpal: 'AI + satellite' },
+                  { label: 'DMRV method',               verra: 'Manual surveys', gold: 'Manual surveys', dpal: 'AI + satellite' },
                   { label: 'Blockchain ledger',        verra: '✗',              gold: '✗',             dpal: '✓ on-chain' },
                   { label: 'Open marketplace',         verra: '✗',              gold: '✗',             dpal: '✓ built-in' },
                   { label: 'Smallholder access',       verra: '✗ (min 50K ac)', gold: '✗ (min 25K ac)', dpal: '✓ any size' },

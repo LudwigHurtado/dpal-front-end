@@ -80,7 +80,7 @@ const EVIDENCE_LAYERS: {
   },
   {
     layer: 'NDVI / NBR / biomass calculation',
-    source: 'DPAL MRV engine (sample)',
+    source: 'DPAL DMRV engine (sample)',
     status: 'Computed',
     timestamp: '2026-05-10 08:18 UTC',
     confidence: '0.68',
@@ -192,7 +192,7 @@ const ANOMALY_CARDS: {
     title: 'Greenwashing claim risk',
     severity: 'High',
     explanation: 'Marketing copy exceeds evidence completeness score (78%) for removal claims.',
-    action: 'Tighten public language to indicative MRV until human validator signs off.',
+    action: 'Tighten public language to indicative DMRV until human validator signs off.',
   },
 ];
 
@@ -217,7 +217,7 @@ const VALIDATOR_QUEUE: {
   note: string;
 }[] = [
   { role: 'AI verifier', status: 'Screening complete (sample)', note: 'Flags anomalies; does not approve claims.' },
-  { role: 'Technical validator', status: 'Queued', note: 'MRV methodology + remote sensing checks.' },
+  { role: 'Technical validator', status: 'Queued', note: 'DMRV methodology + remote sensing checks.' },
   { role: 'Human reviewer', status: 'Required', note: 'Final interpretation of evidence stack.' },
   { role: 'Partner review', status: 'Optional', note: 'CarbonPura partner sign-off when configured.' },
   { role: 'Final publication approval', status: 'Locked', note: 'Publication blocked until human validation completes.' },
@@ -343,7 +343,7 @@ function btnSecondary(onClick: () => void, label: string): React.ReactElement {
 }
 
 /**
- * Carbon dMRV Command Center — investor-ready MRV operating shell with demo/sample state labeling.
+ * Carbon dMRV Command Center — investor-ready DMRV operating shell with demo/sample state labeling.
  */
 export default function CarbonCompliancePage({
   onNavigate,
@@ -469,7 +469,7 @@ export default function CarbonCompliancePage({
                   Monitor, Report, Verify, Validate, Ledger, and Registry-align carbon evidence.
                 </p>
                 <p className="mt-4 text-sm leading-relaxed text-slate-600 sm:text-[15px]">
-                  Digital MRV operating view for CarbonPura and DPAL engines — intake through registry alignment with
+                  Digital DMRV operating view for CarbonPura and DPAL engines — intake through registry alignment with
                   human-gated validation. Sample project state below unless a live API confirms otherwise.
                 </p>
                 <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -681,7 +681,7 @@ export default function CarbonCompliancePage({
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             {btnPrimary(() => onNavigate('previewEvidencePacket'), 'Generate evidence packet')}
-            {btnSecondary(() => onNavigate('carbonMRV'), 'Open Carbon MRV engine')}
+            {btnSecondary(() => onNavigate('carbonDMRV'), 'Open Carbon DMRV engine')}
             {btnSecondary(() => onNavigate('carbonPuraWorkspace'), 'Open CarbonPura workspace')}
             {btnSecondary(() => onNavigate('transparencyDatabase'), 'Open transparency database')}
             <button
@@ -702,9 +702,9 @@ export default function CarbonCompliancePage({
         >
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <WorkspaceToolCard
-              title="Carbon MRV"
+              title="Carbon DMRV"
               description="Live adapters when API host exposes /api/carbon/* routes."
-              onClick={() => onNavigate('carbonMRV')}
+              onClick={() => onNavigate('carbonDMRV')}
             />
             <WorkspaceToolCard
               title="Carbon HQ"

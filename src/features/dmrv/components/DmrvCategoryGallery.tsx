@@ -13,12 +13,12 @@ export type DmrvCategoryGalleryProps = {
 };
 
 /**
- * Horizontal image-card strip for all DMRV MRV domains — one scrollable row with arrow controls below.
+ * Horizontal image-card strip for all DMRV DMRV domains — one scrollable row with arrow controls below.
  */
 export function DmrvCategoryGallery({
   currentSlug,
   compact = false,
-  title = 'MRV domains',
+  title = 'DMRV domains',
   subtitle = 'Choose an environmental intelligence domain. Each card opens that category’s DMRV connectors and evaluation types.',
 }: DmrvCategoryGalleryProps): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -67,7 +67,7 @@ export function DmrvCategoryGallery({
         ref={scrollRef}
         onScroll={syncScroll}
         className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden pb-1 snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-        aria-label="MRV category image cards"
+        aria-label="DMRV category image cards"
       >
         {DMRV_CATEGORIES.map((category) => (
           <div key={category.slug} className={`shrink-0 snap-start ${cardWidthClass}`}>
@@ -84,7 +84,7 @@ export function DmrvCategoryGallery({
         <div
           className="flex items-center gap-2.5"
           role="group"
-          aria-label="Scroll MRV categories"
+          aria-label="Scroll DMRV categories"
         >
           <GalleryScrollButton
             direction="left"

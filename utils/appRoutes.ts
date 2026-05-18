@@ -176,7 +176,7 @@ export const VIEW_PATHS: Record<string, string> = {
   ecosystem: '/ecosystem',
   sustainmentCenter: '/sustainment',
   offsetMarketplace: '/offsets',
-  carbonMRV: '/carbon',
+  carbonDMRV: '/carbon',
   ecologicalConservation: '/ecology',
   earthObservation: '/earth-observation',
   /** Hyperspectral Plastic Watch — EMIT/PACE evidence-support (aliases in pathToView) */
@@ -251,7 +251,7 @@ export const VIEW_PATHS: Record<string, string> = {
   investorDemo: '/investor-demo',
   /** DPAL Command Center — multi-mode orchestration shell (shared adapters / evidence shape). */
   commandCenter: '/command-center',
-  /** Carbon compliance entry — DMRV hub with all MRV category cards (alias: `/carbon-compliance`, `/cad-trust`). */
+  /** Carbon compliance entry — DMRV hub with all DMRV category cards (alias: `/carbon-compliance`, `/cad-trust`). */
   carbonComplianceWorkspace: '/dmrv',
   /** Platform Architecture v2 — Environmental workspace hub (aliases: `/environmental-hub`). */
   environmentalWorkspace: '/environmental-workspace',
@@ -282,7 +282,7 @@ export function pathToView(pathname: string): string | null {
     return 'carbonPuraWorkspace';
   }
   if (normalized === '/environmental-hub') return 'environmentalWorkspace';
-  if (normalized === '/carbon-mrv') return 'carbonMRV';
+  if (normalized === '/carbon-mrv') return 'carbonDMRV';
   if (normalized === '/carbonpura') return 'carbonPuraWorkspace';
   if (normalized === '/ocean-plastic') return 'hyperspectralPlasticWatch';
   if (normalized === '/biosphere-land') return 'earthObservation';

@@ -11,7 +11,7 @@ const CC_WATER_LIMITATIONS = [
   'Command Center water result is an evidence lead only — not a certified determination, legal outcome, or water credit.',
   'Full AquaScan workspace is required for AOI drawing, overlays, time-series comparison, and evidence packet generation.',
   'Field validation may be required before operational or legal use.',
-  'Indicative MRV context only — live signals depend on this API host and upstream providers.',
+  'Indicative DMRV context only — live signals depend on this API host and upstream providers.',
 ];
 
 const STATS_TIMEOUT_MS = 12_000;

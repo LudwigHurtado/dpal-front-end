@@ -41,7 +41,7 @@ export function normalizeAquascanSummary(summary: AquascanAccountabilitySummary 
           : 'Water workspace preview — live Copernicus not confirmed from this summary alone.'),
       confidenceLevel: live ? SatelliteConfidenceLevel.satellite_indicated : SatelliteConfidenceLevel.preview_only,
       evidenceReadiness: SatelliteEvidenceReadiness.needs_field_validation,
-      sourceSummary: summary.riskLevel ? `Risk band context: ${summary.riskLevel}` : 'AquaScan intake / MRV context',
+      sourceSummary: summary.riskLevel ? `Risk band context: ${summary.riskLevel}` : 'AquaScan intake / DMRV context',
       limitations: ['Legal water-quality claims require field sampling and lab confirmation'],
       warnings: ['PACE bio-ocean context is supporting only unless a dedicated PACE product lane is live on the API host.'],
       previewOnly: !live,
@@ -75,7 +75,7 @@ export function normalizeAquascanSummary(summary: AquascanAccountabilitySummary 
 export const aquascanWaterAccountabilityAdapter: AccountabilityModuleAdapter = {
   moduleId: 'aquascan_water',
   label: 'AquaScan / Water Monitor',
-  description: 'Copernicus MRV compare, water risk bands, and flood context when live adapters are configured.',
+  description: 'Copernicus DMRV compare, water risk bands, and flood context when live adapters are configured.',
   route: '/water/aquascan',
   supportsClaimTypes: ['water_quality', 'pollution_control', 'regulatory_compliance', 'other'],
   supportsSignalTypes: ['water_quality_risk', 'harmful_algal_bloom_risk', 'flood_extent', 'surface_water_change', 'wetland_change', 'pollution_risk'],

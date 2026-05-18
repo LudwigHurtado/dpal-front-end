@@ -1,4 +1,4 @@
-import { buildDmrvReport, type DmrvReportBuildOverrides } from './dmrvReportBuilder';
+import { builDMRVReport, type DmrvReportBuildOverrides } from './dmrvReportBuilder';
 import { ensureReportLedgers } from './dmrvReportEvidenceSummary';
 import { emitDmrvReportDirty, emitDmrvReportUpdated, DMRV_REPORT_DIRTY_EVENT, DMRV_REPORT_UPDATED_EVENT } from './dmrvReportEvents';
 import { safeTrim } from '../utils/safeString';
@@ -134,12 +134,12 @@ export function getDmrvReport(projectId: string): DmrvReport | null {
 }
 
 /** Rebuild report from workflow stores + optional in-form drafts — no audit trail entry. */
-export function rebuildDmrvReportSilent(
+export function rebuilDMRVReportSilent(
   projectId: string,
   overrides?: DmrvReportBuildOverrides,
 ): DmrvReport {
   const previous = getDmrvReport(projectId);
-  const built = buildDmrvReport(projectId, previous, overrides);
+  const built = builDMRVReport(projectId, previous, overrides);
   const next = withAnchorState(migrateReport(built));
   if (previous) {
     const prevHash = computeDmrvReportJsonHashSync(previous);
@@ -155,7 +155,7 @@ export function patchDmrvReport(
   mutator: (report: DmrvReport) => DmrvReport,
   meta?: Partial<DmrvReportSyncMeta>,
 ): DmrvReport {
-  rebuildDmrvReportSilent(projectId);
+  rebuilDMRVReportSilent(projectId);
   const current = getDmrvReport(projectId);
   if (!current) return rebuildAndPersistDmrvReport(projectId, meta);
   let next = mutator(current);
@@ -183,7 +183,7 @@ export function rebuildAndPersistDmrvReport(
   overrides?: DmrvReportBuildOverrides,
 ): DmrvReport {
   const previous = getDmrvReport(projectId);
-  let next = migrateReport(buildDmrvReport(projectId, previous, overrides));
+  let next = migrateReport(builDMRVReport(projectId, previous, overrides));
   if (meta?.changeSummary) {
     next = {
       ...next,

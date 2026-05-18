@@ -117,7 +117,7 @@ const limitations = [
 const integrationHooks = [
   'Link audit to DPAL Report',
   'Link audit to DPAL Mission',
-  'Link audit to DPAL MRV Project',
+  'Link audit to DPAL DMRV Project',
   'Link audit to DPAL Evidence Vault',
   'Link audit to DPAL Public Ledger',
 ];
@@ -1717,7 +1717,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
             <div className="border-b border-slate-800/80 bg-slate-900/50 px-4 py-3 sm:px-5">
               <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-400/95">Environmental intelligence</p>
               <p className="mt-1 text-sm text-slate-300">
-                Reference visuals for how facility claims, regulatory baselines, atmospheric indicators, and MRV-style satellite lanes fit together in this audit — illustrative context, not live sensor output.
+                Reference visuals for how facility claims, regulatory baselines, atmospheric indicators, and DMRV-style satellite lanes fit together in this audit — illustrative context, not live sensor output.
               </p>
             </div>
             <div className="grid gap-0 lg:grid-cols-[1.25fr_1fr]">
@@ -1749,13 +1749,13 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                 <figure className="relative">
                   <img
                     src={encodeURI(EIAS_VISUAL_ASSETS.mrvSatellite)}
-                    alt="Satellite MRV and carbon intelligence signals supporting discrepancy review"
+                    alt="Satellite DMRV and carbon intelligence signals supporting discrepancy review"
                     className="h-44 w-full object-cover object-center sm:h-48 lg:min-h-[200px] lg:h-[38%]"
                     loading="lazy"
                     decoding="async"
                   />
                   <figcaption className="border-t border-slate-800/60 bg-slate-950/80 px-3 py-2 text-[11px] leading-snug text-slate-400">
-                    Remote sensing and MRV-style indicators — scene-level context, not permit-grade proof alone.
+                    Remote sensing and DMRV-style indicators — scene-level context, not permit-grade proof alone.
                   </figcaption>
                 </figure>
                 <figure className="relative border-t border-slate-800/80 sm:col-span-2 lg:col-span-1">
@@ -2345,7 +2345,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                 <div className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/90 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
                   <p className="px-4 pt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Signal lanes</p>
                   <p className="mt-1 px-4 text-xs text-slate-400">
-                    Atmospheric and MRV artwork from the Environmental Intelligence library — companion to the strip above.
+                    Atmospheric and DMRV artwork from the Environmental Intelligence library — companion to the strip above.
                   </p>
                   <img
                     src={encodeURI(EIAS_VISUAL_ASSETS.airSignals)}
@@ -2579,7 +2579,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                   <input className={inputCls} placeholder="Linked Report ID" value={linkFields.linkedReportId} onChange={(event) => setLinkFields((current) => ({ ...current, linkedReportId: event.target.value }))} />
                   <input className={inputCls} placeholder="Linked Mission ID" value={linkFields.linkedMissionId} onChange={(event) => setLinkFields((current) => ({ ...current, linkedMissionId: event.target.value }))} />
                   <input className={inputCls} placeholder="Linked Project ID" value={linkFields.linkedProjectId} onChange={(event) => setLinkFields((current) => ({ ...current, linkedProjectId: event.target.value }))} />
-                  <input className={inputCls} placeholder="Linked MRV Project ID" value={linkFields.linkedMRVProjectId} onChange={(event) => setLinkFields((current) => ({ ...current, linkedMRVProjectId: event.target.value }))} />
+                  <input className={inputCls} placeholder="Linked DMRV Project ID" value={linkFields.linkedMRVProjectId} onChange={(event) => setLinkFields((current) => ({ ...current, linkedMRVProjectId: event.target.value }))} />
                   <input className={inputCls} placeholder="Linked Evidence Vault ID" value={linkFields.linkedEvidenceVaultId} onChange={(event) => setLinkFields((current) => ({ ...current, linkedEvidenceVaultId: event.target.value }))} />
                   <button
                     type="button"

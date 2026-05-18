@@ -90,7 +90,7 @@ export function dmrvRuleBasedReply(contextSummary: string, userMessage: string):
   if (includesAny(q, ['aoi', 'boundary', 'polygon', 'map', 'location'])) {
     const aoi = ctx.match(/AOI:\s*([^\n]+)/i) || ctx.match(/aoiGeometrySummary["\s:]+([^",\n]+)/i);
     if (aoi?.[1] && !/missing|not yet/i.test(aoi[1])) {
-      return `Your AOI context: ${aoi[1].trim()}. Ensure the map polygon or coordinates match your reporting period and satellite scene search. Reviewers need a clear boundary before MRV screening.`;
+      return `Your AOI context: ${aoi[1].trim()}. Ensure the map polygon or coordinates match your reporting period and satellite scene search. Reviewers need a clear boundary before DMRV screening.`;
     }
     return 'AOI is Missing or Not Yet Configured. Draw or import a boundary on the project map, save project configuration, then configure satellite sources for that area.';
   }

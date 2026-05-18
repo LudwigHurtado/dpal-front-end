@@ -7,7 +7,7 @@ import {
   FileText, Globe, Map, MapPin, Plus, QrCode, ShieldCheck, Target, Upload, Users, Cloud, Loader, X,
 } from './icons';
 import ProjectDetailView from './ProjectDetailView';
-import MRVResultsView from './MRVResultsView';
+import DMRVResultsView from './DMRVResultsView';
 import DpalCarbonViuCalculator from './DpalCarbonViuCalculator';
 import { Usgs3depLidarPanel } from '../src/features/environmentalIntelligence/components/Usgs3depLidarPanel';
 import { useUsgs3depProviderStripItem } from '../src/features/environmentalIntelligence/hooks/useUsgs3depProviderStripItem';
@@ -624,7 +624,7 @@ const BuyerPackageView: React.FC<{
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">Credit Packaging</p>
               <h1 className="mt-1 text-3xl font-black text-white">{projectName}</h1>
-              <p className="mt-2 text-sm text-slate-400">Packaging credits, evidence, maps, and MRV outputs into a buyer-ready submission.</p>
+              <p className="mt-2 text-sm text-slate-400">Packaging credits, evidence, maps, and DMRV outputs into a buyer-ready submission.</p>
             </div>
           </div>
           <button className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500">
@@ -651,7 +651,7 @@ const BuyerPackageView: React.FC<{
         <Card>
           <h2 className="text-lg font-black text-white">Package Contents</h2>
           <div className="mt-4 space-y-3">
-            {['Verified project maps', 'Carbon timeline', 'Evidence archive', 'MRV result sheet', 'Buyer-facing summary memo'].map((item) => (
+            {['Verified project maps', 'Carbon timeline', 'Evidence archive', 'DMRV result sheet', 'Buyer-facing summary memo'].map((item) => (
               <div key={item} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white">{item}</div>
             ))}
           </div>
@@ -783,7 +783,7 @@ const MissionLiveView: React.FC<{
 const pipelineSteps: Array<{ title: string; detail: string }> = [
   { title: 'Observed Activity', detail: 'Real-world action logged on the ground: trees planted, hectares patrolled, plots measured.' },
   { title: 'Eligible Impact', detail: 'DPAL determines whether the activity is actually credit-relevant.' },
-  { title: 'Modeled tCO2e', detail: 'The MRV engine estimates carbon benefit from verified field activity.' },
+  { title: 'Modeled tCO2e', detail: 'The DMRV engine estimates carbon benefit from verified field activity.' },
   { title: 'Verification Review', detail: 'Evidence is checked by rules, validators, and satellite monitoring.' },
   { title: 'Credits Packaged', detail: 'Impact is structured into a buyer-ready package.' },
   { title: 'Buyer/Registry Submission', detail: 'The package moves to buyers or registries for sale or certification.' },
@@ -1073,7 +1073,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       label: 'Satellite Review',
       value: 'Passed',
       tone: 'text-emerald-300',
-      onClick: () => runTransition('Opening MRV results', () => setSurfaceView('mrvResults')),
+      onClick: () => runTransition('Opening DMRV results', () => setSurfaceView('mrvResults')),
     },
     {
       label: 'Geo Match',
@@ -1383,7 +1383,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       { label: 'Steward', value: selectedProject.stewardName },
       { label: 'Registry Target', value: selectedProject.registryTarget },
       { label: 'Land Rights', value: selectedProject.landRightsStatus },
-      { label: 'Last MRV Validation', value: selectedProject.mrvLastValidatedAt },
+      { label: 'Last DMRV Validation', value: selectedProject.mrvLastValidatedAt },
     ],
     carbonTimeline: [
       { id: 'tl-1', date: '2026-01-12', activity: 'Baseline parcel mapping completed', carbonImpact: '0 t baseline locked' },
@@ -1536,7 +1536,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       },
     ],
     dataProvenanceLabel: 'Curated review record with no live satellite adapter attached',
-    dataProvenanceNote: 'This screen currently summarizes project monitoring status, evidence records, and reviewer-configured MRV inputs. The AFOLU Proof Engine page is not yet ingesting a live satellite adapter payload inside this review flow, so remote-sensing statements here should be treated as review narrative until a real scene read or backend result is attached.',
+    dataProvenanceNote: 'This screen currently summarizes project monitoring status, evidence records, and reviewer-configured DMRV inputs. The AFOLU Proof Engine page is not yet ingesting a live satellite adapter payload inside this review flow, so remote-sensing statements here should be treated as review narrative until a real scene read or backend result is attached.',
     nextActionLabel: selectedProject.packageCompleteness >= 90
       ? 'Move the project into final credit-package formatting review'
       : 'Request one more evidence and formatting pass before packaging',
@@ -1551,7 +1551,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
         {...projectDetailData}
         onBack={() => setSurfaceView('dashboard')}
         onUploadProof={() => setActiveModal('uploadProof')}
-        onRunMrv={() => runTransition('Running MRV review', () => setSurfaceView('mrvResults'))}
+        onRunMrv={() => runTransition('Running DMRV review', () => setSurfaceView('mrvResults'))}
         onPrepareCredits={() => runTransition('Preparing buyer package', () => setSurfaceView('buyerPackage'))}
       />
     );
@@ -1559,7 +1559,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
 
   if (surfaceView === 'mrvResults') {
     return (
-      <MRVResultsView
+      <DMRVResultsView
         {...mrvResultsData}
         onBack={() => setSurfaceView('dashboard')}
         onApproveCredits={() => runTransition('Approving credits', () => setActiveModal('dealDetail'))}
@@ -1650,10 +1650,10 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               Upload Proof
             </button>
             <button
-              onClick={() => runTransition('Running MRV review', () => setSurfaceView('mrvResults'))}
+              onClick={() => runTransition('Running DMRV review', () => setSurfaceView('mrvResults'))}
               className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500"
             >
-              Run MRV Review
+              Run DMRV Review
             </button>
             <button
               onClick={() => runTransition('Preparing buyer package', () => setSurfaceView('buyerPackage'))}
@@ -1677,7 +1677,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
             { title: '1. Project Setup', detail: 'Create the record and lock geography basics', onClick: () => openProjectSetup() },
             { title: '2. AOI & Map', detail: 'Define parcel label, coordinates, and map context', onClick: () => setActiveTab('projects') },
             { title: '3. Missions & Evidence', detail: 'Launch work and capture proof in order', onClick: () => setActiveTab('missions') },
-            { title: '4. MRV Review', detail: 'Check monitoring and verification before packaging', onClick: () => setSurfaceView('mrvResults') },
+            { title: '4. DMRV Review', detail: 'Check monitoring and verification before packaging', onClick: () => setSurfaceView('mrvResults') },
             { title: '5. Buyer Package', detail: 'Move the supported project into commercial prep', onClick: () => setSurfaceView('buyerPackage') },
           ].map(({ title, detail, onClick }, idx) => (
             <button
@@ -1745,7 +1745,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">Investor Narrative</p>
                 <h2 className="mt-2 text-3xl font-black text-white">AFOLU Carbon & Proof Engine</h2>
                 <p className="mt-3 max-w-3xl text-sm text-slate-300">
-                  DPAL captures forestry, reforestation, and land-protection activity, converts it into measurable carbon impact through the MRV engine, and prepares it for buyers and registries.
+                  DPAL captures forestry, reforestation, and land-protection activity, converts it into measurable carbon impact through the DMRV engine, and prepares it for buyers and registries.
                 </p>
                 <div className="mt-5 grid gap-3 md:grid-cols-3">
                   <div className="rounded-lg border border-slate-700/70 bg-black/20 p-3">
@@ -1753,7 +1753,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                     <p className="mt-1 text-sm font-bold text-white">Planting, patrol, plot verification, survival checks</p>
                   </div>
                   <div className="rounded-lg border border-slate-700/70 bg-black/20 p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">MRV Conversion</p>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">DMRV Conversion</p>
                     <p className="mt-1 text-sm font-bold text-white">Satellite, AI, validator, and proof scoring confirm asset quality</p>
                   </div>
                   <div className="rounded-lg border border-slate-700/70 bg-black/20 p-3">
@@ -1763,11 +1763,11 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                 </div>
               </Card>
               <Card>
-                <h2 className="text-lg font-black text-white">MRV Intelligence</h2>
+                <h2 className="text-lg font-black text-white">DMRV Intelligence</h2>
                 <div className="mt-4 space-y-3">
                   <button
                     type="button"
-                    onClick={() => runTransition('Opening MRV results', () => setSurfaceView('mrvResults'))}
+                    onClick={() => runTransition('Opening DMRV results', () => setSurfaceView('mrvResults'))}
                     className="w-full rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-left transition hover:border-emerald-400"
                   >
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Confidence Score</p>
@@ -1796,7 +1796,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               <Metric label="Estimated tCO2e" value={totals.co2Captured.toLocaleString()} icon={<Cloud className="h-5 w-5" />} tone="text-sky-300" onClick={() => runTransition('Opening project detail', () => setSurfaceView('projectDetail'))} />
               <Metric label="Credits Ready" value={totals.inventoryAvailable.toLocaleString()} icon={<Award className="h-5 w-5" />} tone="text-lime-300" onClick={() => runTransition('Opening buyer package', () => setSurfaceView('buyerPackage'))} />
               <Metric label="Survival Rate" value={`${totals.survival}%`} icon={<Activity className="h-5 w-5" />} tone="text-amber-300" onClick={() => setActiveTab('monitoring')} />
-              <Metric label="Verification Confidence" value={`${totals.avgVerificationConfidence}%`} icon={<ShieldCheck className="h-5 w-5" />} tone="text-emerald-300" onClick={() => runTransition('Opening MRV results', () => setSurfaceView('mrvResults'))} />
+              <Metric label="Verification Confidence" value={`${totals.avgVerificationConfidence}%`} icon={<ShieldCheck className="h-5 w-5" />} tone="text-emerald-300" onClick={() => runTransition('Opening DMRV results', () => setSurfaceView('mrvResults'))} />
               <Metric label="Buyer Interest" value={`${buyerInterest} buyers`} icon={<Users className="h-5 w-5" />} tone="text-fuchsia-300" onClick={() => setActiveTab('buyers')} />
               <Metric label="Projected Revenue" value={usd(totals.projectedRevenueUsd)} icon={<Database className="h-5 w-5" />} tone="text-amber-300" onClick={() => setActiveTab('buyers')} />
             </section>
@@ -1918,7 +1918,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               setSelectedMissionType('Plant Trees');
               setActiveModal('missionBuilder');
             }}
-            onRunMrv={() => runTransition('Running MRV review', () => setSurfaceView('mrvResults'))}
+            onRunMrv={() => runTransition('Running DMRV review', () => setSurfaceView('mrvResults'))}
             onPreparePackage={() => runTransition('Preparing buyer package', () => setSurfaceView('buyerPackage'))}
             savedProjectAoi={selectedProject ? {
               id: selectedProject.id,
@@ -1990,7 +1990,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                     ['Land Rights', selectedProject.landRightsStatus],
                     ['Registry Target', selectedProject.registryTarget],
                     ['Risk Level', selectedProject.riskLevel],
-                    ['Last MRV Validation', selectedProject.mrvLastValidatedAt],
+                    ['Last DMRV Validation', selectedProject.mrvLastValidatedAt],
                     ['Anomaly Status', selectedProject.anomalyStatus],
                     ['Buyer Demand', selectedProject.buyerDemand],
                   ].map(([label, value]) => (
@@ -2489,7 +2489,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                 </div>
                 <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
                   <p className="text-[11px] uppercase tracking-wide text-slate-500">Recommended next move</p>
-                  <p className="mt-2 text-sm font-bold text-white">Keep stage outputs inspection-ready for MRV review and buyer packaging.</p>
+                  <p className="mt-2 text-sm font-bold text-white">Keep stage outputs inspection-ready for DMRV review and buyer packaging.</p>
                 </div>
               </div>
 
@@ -2498,13 +2498,13 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => runTransition('Running MRV review', () => {
+                    onClick={() => runTransition('Running DMRV review', () => {
                       setPipelineDrawerOpen(false);
                       setSurfaceView('mrvResults');
                     })}
                     className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-100 transition hover:border-emerald-500"
                   >
-                    Run MRV Review
+                    Run DMRV Review
                   </button>
                   <button
                     type="button"
@@ -2536,7 +2536,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       {activeModal === 'projectSetup' && (
         <OverlayModal
           title="Project Setup Wizard"
-          subtitle="Create a project record that immediately feeds Projects, MRV, packaging, and mission planning."
+          subtitle="Create a project record that immediately feeds Projects, DMRV, packaging, and mission planning."
           onClose={() => {
             setActiveModal(null);
             resetProjectSetupModal();
@@ -2962,7 +2962,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       {activeModal === 'uploadProof' && (
         <OverlayModal
           title="Upload Proof"
-          subtitle="Photos, videos, GPS, and witness materials feed the MRV engine."
+          subtitle="Photos, videos, GPS, and witness materials feed the DMRV engine."
           onClose={() => setActiveModal(null)}
         >
           <div className="grid gap-3 sm:grid-cols-2">

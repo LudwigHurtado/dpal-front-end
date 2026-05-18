@@ -3488,7 +3488,7 @@ export default function WaterMonitorView({ onReturn, onOpenAquaScan }: WaterMoni
               onClick={onOpenAquaScan}
               className="ml-auto rounded-lg border border-teal-500/40 bg-teal-900/25 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-teal-100 hover:bg-teal-900/45"
             >
-              Open AquaScan MRV
+              Open AquaScan DMRV
             </button>
           ) : null}
 

@@ -73,7 +73,7 @@ const MODULE_LABELS: Record<AccountabilityModuleId, string> = {
   plastic_watch: 'Hyperspectral Plastic Watch',
   forest_integrity: 'Forest Integrity',
   aquascan_water: 'AquaScan / Water Monitor',
-  carbon_mrv: 'Carbon MRV',
+  carbon_mrv: 'Carbon DMRV',
   carb_emissions_audit: 'CARB / Emissions Audit',
   hazardous_waste_audit: 'Hazardous Waste Audit',
   envirofacts_geo: 'EPA / Envirofacts Geo',

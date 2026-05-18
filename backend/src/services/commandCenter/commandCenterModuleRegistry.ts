@@ -7,7 +7,7 @@ export const COMMAND_CENTER_WORKSPACE_VIEW: Record<CommandCenterModuleKey, strin
   plasticWatch: 'hyperspectralPlasticWatch',
   forestIntegrity: 'forestIntegrity',
   pollutionAudit: 'carbEmissionsAudit',
-  carbonViu: 'carbonMRV',
+  carbonViu: 'carbonDMRV',
   situationRoom: 'situationRoom',
 };
 

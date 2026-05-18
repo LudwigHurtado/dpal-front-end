@@ -39,7 +39,7 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'ecosystem',
   'sustainmentCenter',
   'offsetMarketplace',
-  'carbonMRV',
+  'carbonDMRV',
   'ecologicalConservation',
   'earthObservation',
   'forestIntegrity',

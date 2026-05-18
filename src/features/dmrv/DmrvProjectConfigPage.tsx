@@ -14,7 +14,7 @@ import {
   type LatLngPoint,
 } from './utils/dmrvAoiMapUtils';
 import {
-  buildDmrvLocationSuggestions,
+  builDMRVLocationSuggestions,
   type DmrvLocationSuggestions,
 } from './utils/dmrvLocationAssist';
 import { computeDmrvProjectWorkflowLinks } from './utils/dmrvWorkflowLinks';
@@ -144,7 +144,7 @@ export default function DmrvProjectConfigPage({
         ac.signal,
       );
 
-      const suggestions = buildDmrvLocationSuggestions({
+      const suggestions = builDMRVLocationSuggestions({
         placeLabel,
         categorySlug,
         categoryTitle: category.title,

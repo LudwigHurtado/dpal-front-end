@@ -26,10 +26,10 @@ export const hubSections: Array<{ title: string; description: string; cards: Mod
     ],
   },
   {
-    title: 'Carbon & MRV',
+    title: 'Carbon & DMRV',
     description: 'Measure, calculate, verify, and explain carbon impacts.',
     cards: [
-      { title: 'Carbon Intelligence & MRV', badge: 'MRV', description: 'Run carbon overview analytics, MRV calculations, verification checks, and VIU impact accounting.', status: 'Operational', cta: 'Open Module' },
+      { title: 'Carbon Intelligence & DMRV', badge: 'DMRV', description: 'Run carbon overview analytics, DMRV calculations, verification checks, and VIU impact accounting.', status: 'Operational', cta: 'Open Module' },
     ],
   },
   {

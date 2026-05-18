@@ -34,7 +34,7 @@ export function computeDmrvProjectWorkflowLinks(
       detail: coordOk
         ? hasPolygon
           ? 'Coordinates + polygon flow to satellite scans and evidence packets.'
-          : 'Center point saved — add a polygon when the MRV type needs a boundary.'
+          : 'Center point saved — add a polygon when the DMRV type needs a boundary.'
         : 'Pick a map center or finish an AOI polygon.',
     },
     {

@@ -52,7 +52,7 @@ export type MrvApiResult<T> =
   | { ok: false; kind: MrvApiFailureKind };
 
 function projectBase(projectId: string): string {
-  return `${API_ROUTES.MRV_PROJECTS}/${encodeURIComponent(projectId)}`;
+  return `${API_ROUTES.DMRV_PROJECTS}/${encodeURIComponent(projectId)}`;
 }
 
 async function fetchMrv<T>(url: string, init?: RequestInit): Promise<MrvApiResult<T>> {

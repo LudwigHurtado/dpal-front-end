@@ -20,7 +20,7 @@ interface ReviewFact {
   value: string;
 }
 
-interface MRVResultsViewProps {
+interface DMRVResultsViewProps {
   projectName: string;
   runDate: string;
   reviewScope: string;
@@ -91,7 +91,7 @@ const HeaderSection: React.FC<{
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-sky-300">MRV Review Record</p>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-sky-300">DMRV Review Record</p>
           <h1 className="mt-1 text-3xl font-black text-white">{projectName}</h1>
           <p className="mt-2 text-sm text-slate-300">Review date: {runDate}</p>
           <p className="mt-1 max-w-3xl text-sm text-slate-400">Review scope: {reviewScope}</p>
@@ -258,7 +258,7 @@ const ActionBar: React.FC<{
   </div>
 );
 
-const MRVResultsView: React.FC<MRVResultsViewProps> = ({
+const DMRVResultsView: React.FC<DMRVResultsViewProps> = ({
   projectName,
   runDate,
   reviewScope,
@@ -350,4 +350,4 @@ const MRVResultsView: React.FC<MRVResultsViewProps> = ({
   );
 };
 
-export default MRVResultsView;
+export default DMRVResultsView;

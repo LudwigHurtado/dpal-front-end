@@ -474,7 +474,7 @@ const CarbonCreditWorkbench: React.FC<CarbonCreditWorkbenchProps> = ({
                 Launch Mission
               </button>
               <button onClick={onRunMrv} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-100 transition hover:border-emerald-500">
-                Run MRV Review
+                Run DMRV Review
               </button>
               <button onClick={onPreparePackage} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-100 transition hover:border-emerald-500">
                 Prepare Buyer Package
@@ -700,7 +700,7 @@ const CarbonCreditWorkbench: React.FC<CarbonCreditWorkbenchProps> = ({
       {tab === 'portfolio' && (
         <WorkbenchCard>
           <h3 className="text-xl font-black text-white">Expanded DPAL Carbon Portfolio</h3>
-          <p className="mt-2 text-sm text-slate-400">Use this view to compare category breadth, illustrative credit potential, and which areas fit DPAL’s mission, marketplace, and MRV stack.</p>
+          <p className="mt-2 text-sm text-slate-400">Use this view to compare category breadth, illustrative credit potential, and which areas fit DPAL’s mission, marketplace, and DMRV stack.</p>
           <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-800">
             <table className="min-w-full divide-y divide-slate-800 text-sm">
               <thead className="bg-slate-950/80 text-left text-slate-400">
@@ -808,7 +808,7 @@ const CarbonCreditWorkbench: React.FC<CarbonCreditWorkbenchProps> = ({
               <p><strong className="text-white">Uncertainty:</strong> discount for weak measurements or sparse data.</p>
               <p><strong className="text-white">Verifier:</strong> confidence score from validator or approved methodology.</p>
               <p><strong className="text-white">Community Trust:</strong> DPAL-native social verification from mission proof, witnesses, and local stake.</p>
-              <p><strong className="text-white">Monitoring Strength:</strong> how well the project is checked over time using MRV.</p>
+              <p><strong className="text-white">Monitoring Strength:</strong> how well the project is checked over time using DMRV.</p>
               <p><strong className="text-white">Buffer Reserve:</strong> credits held back to cover reversals like fire, fraud, or project failure.</p>
             </div>
           </WorkbenchCard>

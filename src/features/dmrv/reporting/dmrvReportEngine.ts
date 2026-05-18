@@ -14,7 +14,7 @@ import {
   getDmrvReport,
   patchDmrvReport,
   rebuildAndPersistDmrvReport,
-  rebuildDmrvReportSilent,
+  rebuilDMRVReportSilent,
 } from './dmrvReportStore';
 import { dispatchDmrvReportEvent } from './dmrvReportEvents';
 import type { DmrvReport, DmrvReportSyncMeta } from './dmrvReportTypes';
@@ -51,7 +51,7 @@ export function appendSatelliteReviewToReport(
   projectId: string,
   review: Omit<DmrvSatelliteReview, 'reviewId' | 'projectId' | 'reportId'> & { reviewId?: string },
 ): DmrvReport {
-  const report = getDmrvReport(projectId) ?? rebuildDmrvReportSilent(projectId);
+  const report = getDmrvReport(projectId) ?? rebuilDMRVReportSilent(projectId);
   const row: DmrvSatelliteReview = {
     reviewId: review.reviewId ?? id('sat-review'),
     projectId,
@@ -78,7 +78,7 @@ export function appendBiomassSnapshotToReport(
   projectId: string,
   snapshot: Omit<DmrvBiomassSnapshot, 'snapshotId' | 'projectId' | 'reportId'> & { snapshotId?: string },
 ): DmrvReport {
-  const report = getDmrvReport(projectId) ?? rebuildDmrvReportSilent(projectId);
+  const report = getDmrvReport(projectId) ?? rebuilDMRVReportSilent(projectId);
   const row: DmrvBiomassSnapshot = {
     snapshotId: snapshot.snapshotId ?? id('biomass'),
     projectId,
@@ -115,7 +115,7 @@ export function appendThreatToReport(
   projectId: string,
   threat: Omit<DmrvThreatRecord, 'threatId' | 'projectId' | 'reportId' | 'detectedAt'> & { threatId?: string },
 ): DmrvReport {
-  const report = getDmrvReport(projectId) ?? rebuildDmrvReportSilent(projectId);
+  const report = getDmrvReport(projectId) ?? rebuilDMRVReportSilent(projectId);
   const row: DmrvThreatRecord = {
     threatId: threat.threatId ?? id('threat'),
     projectId,
@@ -145,7 +145,7 @@ export function createValidatorMissionInReport(
     evidenceCollected?: string[];
   },
 ): DmrvReport {
-  const report = getDmrvReport(projectId) ?? rebuildDmrvReportSilent(projectId);
+  const report = getDmrvReport(projectId) ?? rebuilDMRVReportSilent(projectId);
   const row: DmrvValidatorMission = {
     missionId: mission.missionId ?? id('mission'),
     projectId,

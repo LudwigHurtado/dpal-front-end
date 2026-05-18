@@ -301,7 +301,7 @@ export function buildFieldPlotValidationRules(
     {
       id: 'aoi-match',
       name: 'AOI / project location should match plot location',
-      whyItMatters: 'Plots far outside the project AOI weaken MRV integrity and reviewer trust.',
+      whyItMatters: 'Plots far outside the project AOI weaken DMRV integrity and reviewer trust.',
       status: coordsOk && aoiOk ? 'pass' : coordsOk ? 'needs_review' : 'missing',
       fieldKey: 'latitude',
       fixHint: aoiOk ? undefined : 'Define an AOI in project configuration, then align plot coordinates.',

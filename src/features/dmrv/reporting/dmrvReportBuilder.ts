@@ -768,7 +768,7 @@ function buildEvidencePacketContext(configs: DmrvInputConfig[]): DmrvEvidencePac
   };
 }
 
-export function buildDmrvReport(
+export function builDMRVReport(
   projectId: string,
   previous?: DmrvReport | null,
   overrides?: DmrvReportBuildOverrides,

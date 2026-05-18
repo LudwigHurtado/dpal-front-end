@@ -59,7 +59,7 @@ export default function CarbonPuraCommandCenterPage({ onReturn, onOpenView }: Ca
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-300/95">CarbonPura · Environmental integrity</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">CarbonPura Live Environmental Integrity OS</h1>
             <p className="mt-4 max-w-4xl text-sm leading-relaxed text-slate-200 sm:text-[15px]">
-              Powered by DPAL — launch water monitoring, AquaScan satellite analysis, PACE plastic intelligence, carbon MRV,
+              Powered by DPAL — launch water monitoring, AquaScan satellite analysis, PACE plastic intelligence, carbon DMRV,
               forest integrity, air quality, hazardous waste audits, GeoLedger evidence, and registry-ready reporting from existing
               live engines.
             </p>
@@ -161,11 +161,11 @@ export default function CarbonPuraCommandCenterPage({ onReturn, onOpenView }: Ca
               onVerifyOutput={scrollEvidence}
             />
             <OperationalEngineCard
-              title="Carbon MRV Engine"
+              title="Carbon DMRV Engine"
               description="Carbon project monitoring, baseline/additionality support, and carbon/CO₂e evidence workflows."
-              routeLabel={VIEW_PATHS.carbonMRV}
-              onOpenLive={() => go('carbonMRV')}
-              onOpenWithContext={() => ctxNavigate(VIEW_PATHS.carbonMRV)}
+              routeLabel={VIEW_PATHS.carbonDMRV}
+              onOpenLive={() => go('carbonDMRV')}
+              onOpenWithContext={() => ctxNavigate(VIEW_PATHS.carbonDMRV)}
               onVerifyOutput={scrollEvidence}
             />
             <OperationalEngineCard

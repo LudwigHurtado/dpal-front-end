@@ -13,7 +13,7 @@ const CC_CARBON_LIMITATIONS = [
   'No automatic VIU issuance.',
   'No automatic carbon credit issuance.',
   'No registry certification claim (Verra, Gold Standard, or other).',
-  'Full Carbon MRV / VIU workspace is required for project boundary, methodology, baseline, additionality, permanence, leakage, buffer, validation, and verification.',
+  'Full Carbon DMRV / VIU workspace is required for project boundary, methodology, baseline, additionality, permanence, leakage, buffer, validation, and verification.',
   'Field validation and independent review may be required.',
 ];
 
@@ -115,7 +115,7 @@ export async function executeCarbonViuForCommandCenter(
 ): Promise<CommandCenterModuleRunResult> {
   const baseLim = CC_CARBON_LIMITATIONS;
   const aoiNote =
-    'Command Center uses point coordinates and radiusKm only; project polygon, methodology selection, and MRV boundary workflows require the full Carbon MRV workspace.';
+    'Command Center uses point coordinates and radiusKm only; project polygon, methodology selection, and DMRV boundary workflows require the full Carbon DMRV workspace.';
 
   if (runMode === 'dry_run') {
     return {
@@ -126,7 +126,7 @@ export async function executeCarbonViuForCommandCenter(
       limitations: [
         ...baseLim,
         aoiNote,
-        'Open Carbon MRV for issuance-adjacent flows, boundary definition, and reviewer gates.',
+        'Open Carbon DMRV for issuance-adjacent flows, boundary definition, and reviewer gates.',
       ],
       providerLanes: [
         { id: 'air-quality', label: 'GET /api/carbon/air-quality', state: 'preview', detail: 'Not invoked from Command Center dry run.' },

@@ -73,7 +73,7 @@ const BUSINESS_VALUE: BusinessValueCard[] = [
       'Super Agent proposes a multi-module plan; humans approve each step. Situation Room turns an evidence packet into a coordinated response thread — no auto-publish, no auto-escalation.',
   },
   {
-    capability: 'MRV / VIU readiness',
+    capability: 'DMRV / VIU readiness',
     investorMeaning: 'Future monetization path',
     detail:
       'AquaScan and AFOLU workflows are structured to feed Verified Impact Units. Today they are evidence-support; with accepted standards and validator partners they can support carbon-credit issuance — without replacing external validation.',
@@ -137,13 +137,13 @@ const REVENUE_TRACKS: { title: string; subtitle: string; bullets: string[] }[] =
     title: 'City / civic intelligence',
     subtitle: 'Municipal water, flood, air, and forest stewardship',
     bullets: [
-      'AquaScan MRV for watershed monitoring and lab-uploaded evidence',
+      'AquaScan DMRV for watershed monitoring and lab-uploaded evidence',
       'FloodGuard verified civic flood intelligence (does not replace official alerts)',
       'Air Quality Control with OpenAQ-based context',
     ],
   },
   {
-    title: 'MRV / VIU partnerships',
+    title: 'DMRV / VIU partnerships',
     subtitle: 'Carbon-credit / water-impact issuance pathway',
     bullets: [
       'AFOLU forest carbon command center with mission launch flows',
@@ -322,7 +322,7 @@ const InvestorDemoPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
         <h2 className="text-base font-bold text-slate-900 md:text-lg">Business Value</h2>
         <p className="mt-1 max-w-3xl text-[11px] text-slate-600">
           Each DPAL capability maps to a concrete investor outcome — software, data integrity, response, and a path to
-          accepted MRV / VIU standards.
+          accepted DMRV / VIU standards.
         </p>
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {BUSINESS_VALUE.map((row) => (
@@ -345,7 +345,7 @@ const InvestorDemoPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
         <h2 className="text-base font-bold text-slate-900 md:text-lg">Revenue model &amp; partnership tracks</h2>
         <p className="mt-1 max-w-3xl text-[11px] text-slate-600">
           DPAL monetizes the workflow, not the providers. Three concrete revenue tracks — enterprise compliance,
-          civic intelligence, and MRV / VIU partnerships — share the same evidence backbone.
+          civic intelligence, and DMRV / VIU partnerships — share the same evidence backbone.
         </p>
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
           {REVENUE_TRACKS.map((track) => (
@@ -368,7 +368,7 @@ const InvestorDemoPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
           ))}
         </div>
         <p className="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
-          DPAL is an MRV-ready workflow. It can support carbon-credit issuance through accepted standards, but does not
+          DPAL is a DMRV-ready workflow. It can support carbon-credit issuance through accepted standards, but does not
           replace external validation, regulator decisions, or certified laboratory results.
         </p>
       </section>
@@ -378,7 +378,7 @@ const InvestorDemoPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
         <h2 className="text-base font-bold text-emerald-900 md:text-lg">Next steps / partnership ask</h2>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-emerald-900">
           We are looking for design partners across three lanes: a refinery / utility ESG team for CARB / EPA
-          reconciliation, a municipal water authority for AquaScan MRV, and an MRV / VIU standard partner for
+          reconciliation, a municipal water authority for AquaScan DMRV, and a DMRV / VIU standard partner for
           forest and water impact unit issuance.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
@@ -498,7 +498,7 @@ const DEV_QA_ITEMS: { id: string; label: string }[] = [
   { id: 'watch-forest', label: 'Watch Forest Integrity Work — #watch persists, Watch DPAL Work side panel opens.' },
   { id: 'watch-plastic', label: 'Watch Plastic Watch Work — #watch persists, side panel opens.' },
   { id: 'limitation', label: 'Every scenario card shows a limitation note (not optional).' },
-  { id: 'preview-language', label: 'Evidence pipeline and revenue copy use Preview / Partial / MRV-ready language honestly.' },
+  { id: 'preview-language', label: 'Evidence pipeline and revenue copy use Preview / Partial / DMRV-ready language honestly.' },
   { id: 'mobile', label: 'Resize to ~375 px — cards stack, CTAs wrap, no horizontal scroll.' },
 ];
 

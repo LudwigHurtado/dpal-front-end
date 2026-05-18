@@ -48,7 +48,7 @@ import OutreachEscalationHub from './components/OutreachEscalationHub';
 import EcosystemOverview from './components/EcosystemOverview';
 import SustainmentCenter from './components/SustainmentCenter';
 import OffsetMarketplaceView from './components/OffsetMarketplaceView';
-import CarbonMRVDashboard from './components/CarbonMRVDashboard';
+import CarbonDMRVDashboard from './components/CarbonDMRVDashboard';
 import AquaScanView from './components/AquaScanView';
 import AquaScanReportViewer from './components/aquascan/AquaScanReportViewer';
 import AquaScanSituationRoom from './components/aquascan/AquaScanSituationRoom';
@@ -167,7 +167,7 @@ import AdditionalModulesPage from './src/features/additionalModules/AdditionalMo
 import ClimatiqEmissionsCalculatorPage from './src/features/climatiq/ClimatiqEmissionsCalculatorPage';
 import DmrvRoutes from './src/features/dmrv/DmrvRoutes';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace' | 'carbonComplianceWorkspace' | 'environmentalWorkspace' | 'additionalModules' | 'legacyMainMenuGrid' | 'deepOwlServiceLines' | 'globalIntelligenceMap' | 'climatiqCalculator' | 'dmrvSelector';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonDMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace' | 'carbonComplianceWorkspace' | 'environmentalWorkspace' | 'additionalModules' | 'legacyMainMenuGrid' | 'deepOwlServiceLines' | 'globalIntelligenceMap' | 'climatiqCalculator' | 'dmrvSelector';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -2878,7 +2878,7 @@ const App: React.FC = () => {
           <OffsetMarketplaceView
             onReturn={() => goBack('mainMenu')}
             hero={hero}
-            onGoToMRV={() => setCurrentView('carbonMRV')}
+            onGoToDMRV={() => setCurrentView('carbonDMRV')}
           />
         )}
 
@@ -2936,8 +2936,8 @@ const App: React.FC = () => {
           <EnvirofactsGeoDashboard onNavigatePath={syncNavigateToPath} />
         )}
 
-        {currentView === 'carbonMRV' && (
-          <CarbonMRVDashboard
+        {currentView === 'carbonDMRV' && (
+          <CarbonDMRVDashboard
             onReturn={() => goBack('mainMenu')}
             hero={hero}
             onGoToMarket={() => setCurrentView('offsetMarketplace')}
@@ -2945,7 +2945,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'airQualityMonitor' && (
-          <CarbonMRVDashboard
+          <CarbonDMRVDashboard
             onReturn={() => goBack('mainMenu')}
             hero={hero}
             onGoToMarket={() => setCurrentView('offsetMarketplace')}
@@ -2992,7 +2992,7 @@ const App: React.FC = () => {
             onGoToWater={() => setCurrentView('waterMonitor')}
             onGoToAquaScanWater={() => setCurrentView('aquaScanWater')}
             onGoToWaterOperationsEngine={() => setCurrentView('waterOperationsEngine')}
-            onGoToCarbon={() => setCurrentView('carbonMRV')}
+            onGoToCarbon={() => setCurrentView('carbonDMRV')}
             onGoToOffsets={() => setCurrentView('offsetMarketplace')}
             onGoToEmissionsAudit={() => setCurrentView('emissionsIntegrityAudit')}
           />

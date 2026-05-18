@@ -51,7 +51,7 @@ const VARIANT_META: Record<
   },
   'satellite-imagery': {
     title: 'Satellite Configuration AI Helper',
-    placeholder: 'Ask which mission fits your MRV type, cloud limits, or AOI coverage…',
+    placeholder: 'Ask which mission fits your DMRV type, cloud limits, or AOI coverage…',
     starters: [
       'Which satellite should I pick for forest carbon screening?',
       'When should I use Sentinel-1 SAR instead of optical imagery?',
