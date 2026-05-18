@@ -18,6 +18,9 @@ export type DeepAlVoiceSynthesizeSuccess = {
   ttsText: string;
   generatedAt: string;
   contentType?: string;
+  /** Present when VOICE_DEBUG=true */
+  debugUpstreamAudioUrl?: string;
+  debugFetchUrl?: string;
 };
 
 export type DeepAlVoiceSynthesizeFailure = {
@@ -116,7 +119,16 @@ function voiceMaxChars(): number {
 }
 
 function debugVoiceLogs(): boolean {
-  return envTrim('DEBUG_VOICE_LOGS').toLowerCase() === 'true';
+  const raw =
+    envTrim('VOICE_DEBUG') ||
+    envTrim('DEBUG_VOICE_LOGS');
+  return raw.toLowerCase() === 'true';
+}
+
+function readChatterboxSynthPath(): string {
+  const raw = envTrim('CHATTERBOX_SYNTH_PATH');
+  if (!raw) return '/synthesize';
+  return raw.startsWith('/') ? raw : `/${raw}`;
 }
 
 function chatterboxUpstreamHost(): string | null {
@@ -254,6 +266,25 @@ function resolveAudioUrl(audioUrl: string, chatterboxBaseUrl: string): string {
   return trimmed;
 }
 
+/** Extract `/audio/<file>.wav` from upstream JSON (handles broken PUBLIC_BASE_URL hosts). */
+function extractChatterboxAudioPath(audioUrl: string): string | null {
+  const trimmed = audioUrl.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('/audio/')) {
+    const path = trimmed.split('?')[0]?.split('#')[0] ?? '';
+    return path.startsWith('/audio/') ? path : null;
+  }
+  const match = trimmed.match(/\/audio\/[^/?#]+\.wav/i);
+  return match ? match[0] : null;
+}
+
+/** Server-side fetch URL — always use internal CHATTERBOX_API_URL when we have a path. */
+function chatterboxServerAudioFetchUrl(audioUrl: string, chatterboxBaseUrl: string): string {
+  const path = extractChatterboxAudioPath(audioUrl);
+  if (path) return `${chatterboxBaseUrl}${path}`;
+  return resolveAudioUrl(audioUrl, chatterboxBaseUrl);
+}
+
 /** Browser cannot load Railway internal DNS or localhost URLs from the user's device. */
 function isBrowserUnplayableAudioUrl(url: string): boolean {
   if (url.startsWith('data:')) return false;
@@ -270,26 +301,58 @@ function isBrowserUnplayableAudioUrl(url: string): boolean {
   }
 }
 
+/** Placeholder or malformed PUBLIC_BASE_URL from Chatterbox README examples. */
+function isInvalidChatterboxPublicUrl(url: string): boolean {
+  if (!url.startsWith('http')) return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (host.includes('<') || host.includes('>')) return true;
+    if (host.includes('your-') || host.includes('example.com')) return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 /** Fetch upstream audio on the server and return a data: URL the browser can play. */
 async function toBrowserPlayableAudioUrl(
   audioUrl: string,
   contentType: string,
   headers: Record<string, string>,
-): Promise<string> {
-  if (!isBrowserUnplayableAudioUrl(audioUrl)) return audioUrl;
+  chatterboxBaseUrl: string,
+): Promise<{ playableUrl: string; fetchUrl: string }> {
+  if (audioUrl.startsWith('data:')) {
+    return { playableUrl: audioUrl, fetchUrl: audioUrl };
+  }
 
-  const response = await fetch(audioUrl, {
+  const serverFetchUrl = chatterboxServerAudioFetchUrl(audioUrl, chatterboxBaseUrl);
+  const canReturnPublicUrlDirectly =
+    !isBrowserUnplayableAudioUrl(audioUrl) &&
+    !isInvalidChatterboxPublicUrl(audioUrl) &&
+    serverFetchUrl === audioUrl;
+
+  if (canReturnPublicUrlDirectly) {
+    return { playableUrl: audioUrl, fetchUrl: audioUrl };
+  }
+
+  const response = await fetch(serverFetchUrl, {
     method: 'GET',
     headers: { ...headers, Accept: 'audio/*' },
     signal: AbortSignal.timeout(chatterboxSynthesizeTimeoutMs()),
   });
   if (!response.ok) {
-    throw new Error(`Failed to fetch audio from Chatterbox host (HTTP ${response.status}).`);
+    throw new Error(
+      `Failed to fetch audio from Chatterbox host (HTTP ${response.status}) via ${serverFetchUrl}.`,
+    );
   }
   const buffer = Buffer.from(await response.arrayBuffer());
   const mime =
     response.headers.get('content-type')?.split(';')[0]?.trim() || contentType || 'audio/wav';
-  return buildAudioDataUrl(mime, buffer.toString('base64'));
+  return {
+    playableUrl: buildAudioDataUrl(mime, buffer.toString('base64')),
+    fetchUrl: serverFetchUrl,
+  };
 }
 
 function pickAudioFromJson(
@@ -348,17 +411,17 @@ export async function synthesizeDeepAlVoice(
     return voiceUnavailable('Chatterbox URL is not configured on this API host.');
   }
 
-  const voiceId = readChatterboxVoiceId();
-  const endpoint = `${baseUrl}/synthesize`;
+  const voiceId = readChatterboxVoiceId() || 'positive';
+  const endpoint = `${baseUrl}${readChatterboxSynthPath()}`;
   const generatedAt = new Date().toISOString();
 
   const headers = buildChatterboxAuthHeaders();
 
-  const chatterboxBody: Record<string, unknown> = { text };
-  if (voiceId) {
-    chatterboxBody.voice_id = voiceId;
-    chatterboxBody.voice = voiceId;
-  }
+  const chatterboxBody: Record<string, unknown> = {
+    text,
+    voice: voiceId,
+    voice_id: voiceId,
+  };
   if (req.workspace) chatterboxBody.workspace = req.workspace;
   if (req.module) chatterboxBody.module = req.module;
   if (req.conversationId) chatterboxBody.conversation_id = req.conversationId;
@@ -405,8 +468,21 @@ export async function synthesizeDeepAlVoice(
         return voiceUnavailable('Chatterbox returned no playable audio URL.');
       }
 
+      let debugUpstreamAudioUrl: string | undefined;
+      let debugFetchUrl: string | undefined;
+      const upstreamAudioUrl = audioUrl;
       try {
-        audioUrl = await toBrowserPlayableAudioUrl(audioUrl, audio.contentType, headers);
+        const playable = await toBrowserPlayableAudioUrl(
+          audioUrl,
+          audio.contentType,
+          headers,
+          baseUrl,
+        );
+        audioUrl = playable.playableUrl;
+        debugFetchUrl = playable.fetchUrl;
+        if (debugVoiceLogs()) {
+          debugUpstreamAudioUrl = upstreamAudioUrl;
+        }
       } catch (e: unknown) {
         return voiceUnavailable(
           e instanceof Error ? e.message : 'Could not prepare audio for browser playback.',
@@ -420,6 +496,9 @@ export async function synthesizeDeepAlVoice(
         ttsText: text,
         generatedAt,
         contentType: audio.contentType,
+        ...(debugVoiceLogs()
+          ? { debugUpstreamAudioUrl, debugFetchUrl }
+          : {}),
       };
     }
 

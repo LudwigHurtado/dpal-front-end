@@ -107,6 +107,14 @@ def public_base_url() -> str:
     return os.getenv("PUBLIC_BASE_URL", f"http://localhost:{port}").rstrip("/")
 
 
+def public_base_url_is_placeholder() -> bool:
+    raw = os.getenv("PUBLIC_BASE_URL", "").strip()
+    if not raw:
+        return False
+    lowered = raw.lower()
+    return "<" in lowered or "your-" in lowered or "example.com" in lowered
+
+
 def verify_api_key(authorization: str | None = Header(default=None)) -> None:
     if not REQUIRED_API_KEY or REQUIRED_API_KEY.lower() == "none":
         return
@@ -239,6 +247,13 @@ async def lifespan(_app: FastAPI):
         max_text_chars(),
         bool(REQUIRED_API_KEY and REQUIRED_API_KEY.lower() != "none"),
     )
+    if public_base_url_is_placeholder():
+        logger.warning(
+            "PUBLIC_BASE_URL looks like a placeholder (%s). "
+            "Set it to your public Railway URL so audioUrl is valid; "
+            "the Node backend can still fetch /audio/* via CHATTERBOX_API_URL.",
+            public_base_url(),
+        )
     if preload_enabled():
         logger.warning("CHATTERBOX_PRELOAD=true — loading model at startup (high memory)")
         try:

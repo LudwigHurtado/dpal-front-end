@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { postDeepAlVoiceSynthesize, resolveVoiceAudioUrl } from '../api/deepalVoiceApi';
 
+const DEFAULT_CLIENT_TIMEOUT_MS = 120_000;
+
 export type UseChatterboxPlaybackOptions = {
   workspace?: string;
   module?: string;
-  /** Max wait for Chatterbox API before reporting failure (browser fallback can run). */
+  /** Max wait for Chatterbox API before browser fallback (default 120s). */
   clientTimeoutMs?: number;
   onPlaybackStart?: () => void;
   onPlaybackEnd?: () => void;
@@ -56,7 +58,7 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
         workspace: options.workspace,
         module: options.module,
         signal: controller.signal,
-        timeoutMs: options.clientTimeoutMs ?? 25_000,
+        timeoutMs: options.clientTimeoutMs ?? DEFAULT_CLIENT_TIMEOUT_MS,
       });
 
       if (controller.signal.aborted) {
@@ -64,23 +66,28 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
         return false;
       }
 
-      const audioUrl =
-        result.ok && result.audioUrl
-          ? result.audioUrl
-          : resolveVoiceAudioUrl(result as unknown as Record<string, unknown>);
-
-      if (!audioUrl) {
-        const msg =
-          !result.ok && result.message
-            ? result.message
-            : !result.ok
-              ? result.error
-              : 'Voice synthesis unavailable.';
+      if (!result.ok) {
+        const msg = result.message ?? result.error ?? 'Voice synthesis unavailable.';
+        console.warn('[DeepAL Voice] Falling back to browser TTS', msg);
         setLastError(msg);
         setIsLoading(false);
         options.onPlaybackError?.(msg);
         return false;
       }
+
+      const audioUrl =
+        result.audioUrl ?? resolveVoiceAudioUrl(result as unknown as Record<string, unknown>);
+
+      if (!audioUrl) {
+        const msg = 'Chatterbox returned no playable audioUrl.';
+        console.warn('[DeepAL Voice] Falling back to browser TTS', msg);
+        setLastError(msg);
+        setIsLoading(false);
+        options.onPlaybackError?.(msg);
+        return false;
+      }
+
+      console.info('[DeepAL Voice] Chatterbox audioUrl', audioUrl.slice(0, 80));
 
       try {
         const audio = new Audio(audioUrl);
@@ -99,6 +106,7 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
         };
         audio.onerror = () => {
           const msg = 'Could not play synthesized audio.';
+          console.warn('[DeepAL Voice] Falling back to browser TTS', msg);
           setLastError(msg);
           stop();
           options.onPlaybackError?.(msg);
@@ -107,6 +115,7 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
         return true;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Audio playback failed.';
+        console.warn('[DeepAL Voice] Falling back to browser TTS', msg);
         setLastError(msg);
         stop();
         options.onPlaybackError?.(msg);

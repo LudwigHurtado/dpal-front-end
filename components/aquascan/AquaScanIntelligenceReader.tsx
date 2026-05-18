@@ -5,6 +5,7 @@ import type { NearbyEntity } from '../../services/entityLookupService';
 import type { WaterAnalysisResponse } from '../../services/waterAnalysisService';
 import { AiVoiceReplyControls } from '../../src/shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../../src/shared/components/VoiceInputButton';
+import { ChatterboxVoiceTestPanel } from '../../src/shared/components/ChatterboxVoiceTestPanel';
 import { useAiVoiceAssistant } from '../../src/shared/hooks/useAiVoiceAssistant';
 import type {
   CopernicusCollection,
@@ -525,7 +526,7 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
   const [activeQuestionId, setActiveQuestionId] = useState<AquaScanQuestionId>('ndwi_meaning');
   const [customQuestion, setCustomQuestion] = useState('');
   const [customAnswer, setCustomAnswer] = useState('');
-  const voice = useAiVoiceAssistant();
+  const voice = useAiVoiceAssistant({ workspace: 'aquascan', module: 'intelligence-reader' });
   const activeQuestion = intelligence.questionsAndAnswers.find((item) => item.id === activeQuestionId) ?? intelligence.questionsAndAnswers[0];
   const askCustomQuestion = (question: string) => {
     const nextQuestion = question.trim();
@@ -698,7 +699,11 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
             ttsSupported={voice.ttsSupported}
             ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
             voiceError={voice.voiceError}
+            statusMessage={voice.statusMessage}
+            voiceProvider={voice.voiceProvider}
+            listenLabel="Speak Answer"
           />
+          <ChatterboxVoiceTestPanel className="mt-2" />
           {customAnswer ? (
             <div className="mt-2 rounded-lg border border-cyan-500/30 bg-slate-900/70 p-3 text-slate-300">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-200">Answer</p>

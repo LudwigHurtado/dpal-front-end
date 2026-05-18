@@ -100,7 +100,7 @@ export default function AquaScanVisualSnapshotAnalyzer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState('');
-  const voice = useAiVoiceAssistant();
+  const voice = useAiVoiceAssistant({ workspace: 'aquascan', module: 'visual-snapshot' });
 
   const clearImage = useCallback(() => {
     setPreviewUrl(null);
@@ -292,6 +292,8 @@ export default function AquaScanVisualSnapshotAnalyzer({
         ttsSupported={voice.ttsSupported}
         ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
         voiceError={voice.voiceError}
+        statusMessage={voice.statusMessage}
+        voiceProvider={voice.voiceProvider}
       />
       {reading ? (
         <div className={`mt-2 rounded-lg border border-slate-700 bg-slate-950/70 text-slate-200 ${variant === 'compact' ? 'max-h-48 overflow-y-auto p-2 text-[9px] leading-relaxed' : 'max-h-[28rem] overflow-y-auto p-3 text-xs leading-relaxed'}`}>

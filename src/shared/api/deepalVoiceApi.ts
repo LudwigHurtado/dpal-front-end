@@ -26,7 +26,7 @@ export type DeepAlVoiceSynthesizeOptions = {
   timeoutMs?: number;
 };
 
-const DEFAULT_CLIENT_TIMEOUT_MS = 25_000;
+const DEFAULT_CLIENT_TIMEOUT_MS = 120_000;
 
 export async function postDeepAlVoiceSynthesize(
   text: string,
