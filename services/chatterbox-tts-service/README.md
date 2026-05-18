@@ -1,15 +1,16 @@
-# DeepAL Chatterbox TTS Service
+# dpal-chatterbox-tts
 
-Standalone **Python FastAPI** microservice that wraps [Resemble AI Chatterbox](https://github.com/resemble-ai/chatterbox) for natural speech used by the DPAL Assistant.
+Standalone **Python FastAPI** service that wraps [Resemble AI Chatterbox](https://github.com/resemble-ai/chatterbox) for natural speech used by the DPAL Assistant.
 
-The repo **`backend/`** (Railway) proxies voice requests to this service via `CHATTERBOX_API_URL`. It does **not** replace Gemini/OpenAI chat routes.
+The repo **`backend/`** (Railway service `web`) proxies voice requests here via `CHATTERBOX_API_URL`. It does **not** replace Gemini/OpenAI chat routes.
 
 ## Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | `{ ok, service: "deepal-chatterbox", engine: "chatterbox" }` |
-| `POST` | `/synthesize` | Generate WAV, save under `/audio/`, return JSON with `audioUrl` |
+| `GET` | `/health` | Lightweight liveness — **does not load the model** |
+| `GET` | `/debug/memory` | Process RSS memory (MB), busy flag, model loaded |
+| `POST` | `/synthesize` | Generate WAV (lazy model load, single-flight) |
 
 ### `POST /synthesize` body
 
@@ -27,7 +28,7 @@ Also accepts `voice_id` (sent by the DPAL backend when `CHATTERBOX_VOICE_ID` is 
 ```json
 {
   "ok": true,
-  "audioUrl": "http://localhost:8020/audio/20260518020000-abc123.wav",
+  "audioUrl": "https://your-service.up.railway.app/audio/20260518020000-abc123.wav",
   "ttsText": "Hello from DPAL",
   "voiceEngine": "chatterbox",
   "generatedAt": "2026-05-18T02:00:00.000Z",
@@ -35,101 +36,91 @@ Also accepts `voice_id` (sent by the DPAL backend when `CHATTERBOX_VOICE_ID` is 
 }
 ```
 
+### Busy response (concurrent request while synthesizing)
+
+```json
+{
+  "ok": false,
+  "error": "TTS_BUSY",
+  "message": "Voice engine is warming up or speaking. Try again shortly."
+}
+```
+
+HTTP **503** — compatible with DPAL backend `VOICE_UNAVAILABLE` fallback.
+
 ## Quick start (local)
 
 ```bash
 cd services/chatterbox-tts-service
 python -m venv .venv
-
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-# source .venv/bin/activate
-
+.venv\Scripts\activate   # Windows
 pip install -r requirements.txt
-
-# Optional: place a 6–10s reference clip for voice cloning
-# mkdir voices && cp your-ref.wav voices/positive.wav
-
-uvicorn main:app --host 0.0.0.0 --port ${PORT:-8020}
+uvicorn main:app --host 0.0.0.0 --port 8020
 ```
 
 ### Smoke tests
 
 ```bash
 curl http://localhost:8020/health
+curl http://localhost:8020/debug/memory
 
 curl -X POST http://localhost:8020/synthesize \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"Hello from DPAL AquaScan.\"}"
+  -d "{\"text\":\"Hello from DPAL.\"}"
 ```
-
-Open the returned `audioUrl` in a browser or VLC.
 
 ## Wire DPAL Railway backend
 
-On the **DPAL `backend/` Railway service** (not Vercel):
+On the **`web`** Railway service (Node `backend/`), **not** on this service:
 
 | Variable | Example |
 |----------|---------|
-| `CHATTERBOX_API_URL` | `https://your-chatterbox-service.up.railway.app` |
-| `CHATTERBOX_VOICE_ID` | `positive` (matches `voices/positive.wav` if using a ref clip) |
-| `CHATTERBOX_API_KEY` | Same secret as this service, if you enable auth below |
+| `CHATTERBOX_API_URL` | `http://dpal-chatterbox-tts.railway.internal` (private) or public URL |
+| `CHATTERBOX_VOICE_ID` | `positive` |
+| `CHATTERBOX_API_KEY` | Same secret on both services if auth enabled |
 
-Redeploy **`backend/`** after setting variables.
-
-Verify:
-
-```bash
-curl https://web-production-a27b.up.railway.app/api/deepal/health
-# expect chatterboxConfigured: true
-
-curl -X POST https://web-production-a27b.up.railway.app/api/deepal/voice/synthesize \
-  -H "Content-Type: application/json" \
-  -d "{\"text\":\"Hello from DPAL\"}"
-```
-
-## Environment variables (this service)
+## Environment variables (dpal-chatterbox-tts)
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PORT` | `8020` | HTTP port |
-| `PUBLIC_BASE_URL` | `http://localhost:{PORT}` | Absolute `audioUrl` prefix (set on Railway) |
-| `VOICE_MAX_CHARS` | `2500` | Max input length |
-| `AUDIO_OUTPUT_DIR` | `audio` | Generated WAV directory (served at `/audio`) |
-| `VOICES_DIR` | `voices` | Reference clips: `voices/positive.wav`, etc. |
-| `DEFAULT_VOICE` | `positive` | Used when `voice` / `voice_id` omitted |
+| `PORT` | `8020` | HTTP port (Railway sets `$PORT`) |
+| `PUBLIC_BASE_URL` | `http://localhost:{PORT}` | Absolute `audioUrl` prefix — set to **public** Railway URL |
+| `VOICE_MAX_CHARS` | `500` | Max input length (raise after CPU testing) |
+| `CHATTERBOX_DEVICE` | `cpu` | **`cpu`** unless explicitly set to `cuda` |
+| `CHATTERBOX_PRELOAD` | `false` | **`false`** — do not load model at startup (saves RAM) |
 | `CHATTERBOX_MODEL` | `english` | `english` \| `turbo` \| `multilingual` |
-| `CHATTERBOX_DEVICE` | `cuda` if available else `cpu` | Torch device |
-| `CHATTERBOX_EAGER_LOAD` | `false` | Load model on startup |
-| `CHATTERBOX_API_KEY` | *(empty)* | If set, requires `Authorization: Bearer <key>` |
+| `AUDIO_OUTPUT_DIR` | `audio` | Generated WAV directory |
+| `VOICES_DIR` | `voices` | Reference clips e.g. `voices/positive.wav` |
+| `DEFAULT_VOICE` | `positive` | Default voice id |
+| `CHATTERBOX_API_KEY` | *(empty)* | Optional Bearer auth |
 | `CORS_ORIGINS` | `*` | Comma-separated origins |
 
-## Deploy on Railway (separate service)
+### Railway low-memory profile (recommended)
 
-1. Create a new Railway service from this repo with **root directory** `services/chatterbox-tts-service`.
-2. Set start command:
+```env
+CHATTERBOX_DEVICE=cpu
+CHATTERBOX_PRELOAD=false
+VOICE_MAX_CHARS=500
+CHATTERBOX_MODEL=english
+PUBLIC_BASE_URL=https://your-dpal-chatterbox-tts.up.railway.app
+```
 
-   ```bash
-   uvicorn main:app --host 0.0.0.0 --port $PORT
-   ```
+## Deploy on Railway
 
-3. Set `PUBLIC_BASE_URL` to the public Railway URL (no trailing slash).
-4. Use a **GPU** plan if possible (`CHATTERBOX_DEVICE=cuda`); CPU works but is slower on first request.
-5. Copy the public URL into DPAL `CHATTERBOX_API_URL`.
+1. Create service **dpal-chatterbox-tts** with root directory `services/chatterbox-tts-service`.
+2. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+3. Set env vars above; keep **≥8 GB** plan for first model load on CPU, or use GPU + `CHATTERBOX_DEVICE=cuda`.
+4. Point **`web`** service `CHATTERBOX_API_URL` at this service (internal or public URL).
 
-## Voice reference clips
+## Memory behavior
 
-- **English model** (`CHATTERBOX_MODEL=english`): works without a reference clip; optional `voices/<name>.wav` for cloning.
-- **Turbo** (`CHATTERBOX_MODEL=turbo`): requires `voices/<name>.wav` (≈10s clean speech).
-
-## Security
-
-- v1 local dev: no API key required when `CHATTERBOX_API_KEY` is unset.
-- Production: set the same `CHATTERBOX_API_KEY` on **both** this service and the DPAL `backend/` so the Node proxy can authenticate.
+- **Lazy load:** model loads on first `POST /synthesize` only.
+- **Single-flight:** only one synthesis at a time; others get `TTS_BUSY`.
+- **Inference:** `torch.inference_mode()`, then `gc.collect()` (and `cuda.empty_cache()` if CUDA).
+- **Logs:** model loading started/loaded, generation started/completed, RSS before/after stages.
 
 ## Notes
 
-- First `/synthesize` after cold start may take 30–90s while the model downloads/loads.
-- Generated files accumulate under `audio/`; add a cron or volume policy for cleanup in production.
-- This service is independent of `/api/deepal/chat` and `/api/ai/gemini` — only TTS.
+- First synthesis after cold start downloads/loads the model — can take several minutes on CPU.
+- `/health` stays lightweight for Railway healthchecks.
+- This service is independent of `/api/deepal/chat` — voice only.
