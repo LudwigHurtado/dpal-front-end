@@ -33,9 +33,16 @@ export type ChatterboxHealthStatus = {
   chatterboxConfigured: boolean;
   chatterboxUrlConfigured: boolean;
   chatterboxVoiceIdConfigured: boolean;
+  /** True when GET {CHATTERBOX_API_URL}/health succeeds. */
+  chatterboxReachable?: boolean;
+  chatterboxUpstreamStatus?: number | null;
+  chatterboxUpstreamService?: string | null;
+  chatterboxUpstreamHint?: string;
 };
 
 const DEFAULT_VOICE_MAX_CHARS = 2500;
+const DEFAULT_CHATTERBOX_PROBE_MS = 8_000;
+const DEFAULT_CHATTERBOX_SYNTHESIZE_MS = 120_000;
 
 let configLogged = false;
 
@@ -43,14 +50,43 @@ function envTrim(key: string): string {
   return (process.env[key] ?? '').trim();
 }
 
+function normalizeChatterboxBaseUrl(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\/synthesize\/?$/i, '')
+    .replace(/\/+$/, '');
+}
+
 function readChatterboxUrl(): string {
-  return (
+  const raw =
     envTrim('CHATTERBOX_API_URL') ||
     envTrim('CHATTERBOX_URL') ||
     envTrim('CHATTERBOX_BASE_URL') ||
     envTrim('DEEPAL_CHATTERBOX_URL') ||
-    envTrim('DEEPAL_CHATTERBOX_API_URL')
-  ).replace(/\/+$/, '');
+    envTrim('DEEPAL_CHATTERBOX_API_URL');
+  return normalizeChatterboxBaseUrl(raw);
+}
+
+function chatterboxProbeTimeoutMs(): number {
+  const n = Number.parseInt(envTrim('CHATTERBOX_PROBE_TIMEOUT_MS'), 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_CHATTERBOX_PROBE_MS;
+}
+
+function chatterboxSynthesizeTimeoutMs(): number {
+  const n = Number.parseInt(envTrim('CHATTERBOX_FETCH_TIMEOUT_MS'), 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_CHATTERBOX_SYNTHESIZE_MS;
+}
+
+function buildChatterboxAuthHeaders(): Record<string, string> {
+  const apiKey = readChatterboxApiKey();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json, audio/*',
+  };
+  if (apiKey && apiKey.toLowerCase() !== 'none') {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  return headers;
 }
 
 function readChatterboxApiKey(): string {
@@ -96,6 +132,70 @@ export function isChatterboxConfigured(): boolean {
   return getChatterboxHealthStatus().chatterboxConfigured;
 }
 
+/** Ping the Chatterbox TTS host (GET /health). Does not log secrets. */
+export async function probeChatterboxUpstream(): Promise<{
+  reachable: boolean;
+  status: number | null;
+  service: string | null;
+  error: string | null;
+}> {
+  const baseUrl = readChatterboxUrl();
+  if (!baseUrl) {
+    return { reachable: false, status: null, service: null, error: 'not_configured' };
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/health`, {
+      method: 'GET',
+      headers: buildChatterboxAuthHeaders(),
+      signal: AbortSignal.timeout(chatterboxProbeTimeoutMs()),
+    });
+    if (!response.ok) {
+      return {
+        reachable: false,
+        status: response.status,
+        service: null,
+        error: `upstream_http_${response.status}`,
+      };
+    }
+    const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    const service = typeof data.service === 'string' ? data.service : null;
+    return {
+      reachable: true,
+      status: response.status,
+      service,
+      error: null,
+    };
+  } catch (e: unknown) {
+    return {
+      reachable: false,
+      status: null,
+      service: null,
+      error: e instanceof Error ? e.message : 'upstream_unreachable',
+    };
+  }
+}
+
+export async function getChatterboxHealthStatusAsync(): Promise<ChatterboxHealthStatus> {
+  const base = getChatterboxHealthStatus();
+  if (!base.chatterboxUrlConfigured) {
+    return { ...base, chatterboxReachable: false, chatterboxUpstreamStatus: null };
+  }
+  const probe = await probeChatterboxUpstream();
+  const hint = probe.reachable
+    ? 'Chatterbox TTS upstream is online.'
+    : probe.error === 'not_configured'
+      ? 'Set CHATTERBOX_API_URL to your Python TTS service (services/chatterbox-tts-service), not the Vercel front-end.'
+      : `Chatterbox upstream not ready (${probe.error ?? 'unreachable'}). If Railway shows Deploying, wait until Active.`;
+  return {
+    ...base,
+    chatterboxReachable: probe.reachable,
+    chatterboxUpstreamStatus: probe.status,
+    chatterboxUpstreamService: probe.service,
+    chatterboxUpstreamHint: hint,
+  };
+}
+
 /** Safe startup diagnostic — never logs API key or full user text. */
 export function logChatterboxConfigStatus(): void {
   if (configLogged) return;
@@ -109,16 +209,14 @@ export function logChatterboxConfigStatus(): void {
 }
 
 function voiceUnavailable(message?: string): DeepAlVoiceSynthesizeFailure {
-  if (debugVoiceLogs() && message) {
+  if (message) {
     console.warn('[deepal-voice] synthesis unavailable:', message);
-  } else if (!debugVoiceLogs()) {
-    console.warn('[deepal-voice] synthesis unavailable (set DEBUG_VOICE_LOGS=true for details)');
   }
   return {
     ok: false,
     error: 'VOICE_UNAVAILABLE',
     fallback: 'text-only',
-    ...(debugVoiceLogs() && message ? { message } : {}),
+    ...(message ? { message } : {}),
   };
 }
 
@@ -135,7 +233,18 @@ function buildAudioDataUrl(contentType: string, audioBase64: string): string {
   return `data:${contentType};base64,${audioBase64}`;
 }
 
-function pickAudioFromJson(data: Record<string, unknown>): {
+function resolveAudioUrl(audioUrl: string, chatterboxBaseUrl: string): string {
+  const trimmed = audioUrl.trim();
+  if (!trimmed) return trimmed;
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) return trimmed;
+  if (trimmed.startsWith('/')) return `${chatterboxBaseUrl}${trimmed}`;
+  return trimmed;
+}
+
+function pickAudioFromJson(
+  data: Record<string, unknown>,
+  chatterboxBaseUrl: string,
+): {
   audioUrl?: string;
   audioBase64?: string;
   contentType: string;
@@ -148,10 +257,10 @@ function pickAudioFromJson(data: Record<string, unknown>): {
         : 'audio/wav';
 
   if (typeof data.audioUrl === 'string' && data.audioUrl.trim()) {
-    return { audioUrl: data.audioUrl.trim(), contentType };
+    return { audioUrl: resolveAudioUrl(data.audioUrl, chatterboxBaseUrl), contentType };
   }
   if (typeof data.audio_url === 'string' && data.audio_url.trim()) {
-    return { audioUrl: data.audio_url.trim(), contentType };
+    return { audioUrl: resolveAudioUrl(data.audio_url, chatterboxBaseUrl), contentType };
   }
 
   const audioBase64 =
@@ -189,20 +298,16 @@ export async function synthesizeDeepAlVoice(
   }
 
   const voiceId = readChatterboxVoiceId();
-  const apiKey = readChatterboxApiKey();
   const endpoint = `${baseUrl}/synthesize`;
   const generatedAt = new Date().toISOString();
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'audio/*,application/json',
-  };
-  if (apiKey && apiKey.toLowerCase() !== 'none') {
-    headers.Authorization = `Bearer ${apiKey}`;
-  }
+  const headers = buildChatterboxAuthHeaders();
 
   const chatterboxBody: Record<string, unknown> = { text };
-  if (voiceId) chatterboxBody.voice_id = voiceId;
+  if (voiceId) {
+    chatterboxBody.voice_id = voiceId;
+    chatterboxBody.voice = voiceId;
+  }
   if (req.workspace) chatterboxBody.workspace = req.workspace;
   if (req.module) chatterboxBody.module = req.module;
   if (req.conversationId) chatterboxBody.conversation_id = req.conversationId;
@@ -219,6 +324,7 @@ export async function synthesizeDeepAlVoice(
       method: 'POST',
       headers,
       body: JSON.stringify(chatterboxBody),
+      signal: AbortSignal.timeout(chatterboxSynthesizeTimeoutMs()),
     });
 
     const contentTypeHeader = response.headers.get('content-type') ?? '';
@@ -235,7 +341,7 @@ export async function synthesizeDeepAlVoice(
         return voiceUnavailable(errMsg);
       }
 
-      const audio = pickAudioFromJson(data);
+      const audio = pickAudioFromJson(data, baseUrl);
       if (!audio) {
         return voiceUnavailable('Chatterbox returned JSON without audio.');
       }

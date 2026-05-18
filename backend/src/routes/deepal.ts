@@ -1,21 +1,22 @@
 import { Router } from 'express';
 import { runDeepAlChat } from '../services/deepalChatService';
 import {
-  getChatterboxHealthStatus,
+  getChatterboxHealthStatusAsync,
   logChatterboxConfigStatus,
   synthesizeDeepAlVoice,
 } from '../services/deepalVoiceService';
 
 const router = Router();
 
-router.get('/health', (_req, res) => {
+router.get('/health', async (_req, res) => {
   logChatterboxConfigStatus();
-  const chatterbox = getChatterboxHealthStatus();
+  const chatterbox = await getChatterboxHealthStatusAsync();
   res.json({
     ok: true,
     service: 'dpal-assistant',
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY?.trim()),
     ...chatterbox,
+    voiceReady: Boolean(chatterbox.chatterboxReachable),
   });
 });
 
@@ -79,7 +80,7 @@ router.post('/voice/synthesize', async (req, res) => {
       ok: false,
       error: result.error === 'VALIDATION_ERROR' ? 'VALIDATION_ERROR' : 'VOICE_UNAVAILABLE',
       fallback: result.fallback,
-      ...(process.env.DEBUG_VOICE_LOGS === 'true' && result.message ? { message: result.message } : {}),
+      ...(result.message ? { message: result.message } : {}),
     });
   } catch (e: unknown) {
     console.warn('[deepal-voice] route error:', e instanceof Error ? e.message : 'unknown');
