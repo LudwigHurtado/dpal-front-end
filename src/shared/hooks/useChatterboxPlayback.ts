@@ -4,8 +4,11 @@ import {
   resolveVoiceAudioUrl,
   type DeepAlVoiceSynthesizeResponse,
 } from '../api/deepalVoiceApi';
+import { toPlayableAudioSrc } from '../voice/chatterboxAudio';
 
 const DEFAULT_CLIENT_TIMEOUT_MS = 120_000;
+/** Keep synthesis payloads small for Railway CPU / browser decode limits. */
+const MAX_SYNTHESIS_CHARS = 800;
 
 export type ChatterboxPlayResult =
   | { success: true }
@@ -48,6 +51,7 @@ function pauseCurrentAudio(currentAudioRef: MutableRefObject<HTMLAudioElement | 
 function playChatterboxAudio(
   audioUrl: string,
   currentAudioRef: MutableRefObject<HTMLAudioElement | null>,
+  revokeRef: MutableRefObject<(() => void) | null>,
   hooks: {
     onStart?: () => void;
     onEnd?: () => void;
@@ -55,16 +59,30 @@ function playChatterboxAudio(
   },
 ): Promise<{ success: true } | { success: false; reason: string }> {
   pauseCurrentAudio(currentAudioRef);
+  revokeRef.current?.();
+  revokeRef.current = null;
 
   return new Promise((resolve) => {
-    const audio = new Audio(audioUrl);
+    const prepared = toPlayableAudioSrc(audioUrl);
+    if (prepared.revoke) {
+      revokeRef.current = prepared.revoke;
+    }
+    const audio = new Audio(prepared.src);
     currentAudioRef.current = audio;
     let settled = false;
+
+    const cleanupPrepared = () => {
+      prepared.revoke?.();
+      if (revokeRef.current === prepared.revoke) {
+        revokeRef.current = null;
+      }
+    };
 
     const finish = (success: boolean, reason?: string) => {
       if (settled) return;
       settled = true;
       if (!success) {
+        cleanupPrepared();
         pauseCurrentAudio(currentAudioRef);
         const msg = reason ?? 'HTMLAudioElement playback failed.';
         hooks.onError?.(msg);
@@ -80,6 +98,7 @@ function playChatterboxAudio(
     };
 
     audio.onended = () => {
+      cleanupPrepared();
       pauseCurrentAudio(currentAudioRef);
       hooks.onEnd?.();
     };
@@ -106,14 +125,12 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
   const [isLoading, setIsLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const objectUrlRef = useRef<string | null>(null);
+  const revokeObjectUrlRef = useRef<(() => void) | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const revokeObjectUrl = useCallback(() => {
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = null;
-    }
+    revokeObjectUrlRef.current?.();
+    revokeObjectUrlRef.current = null;
   }, []);
 
   const stop = useCallback(() => {
@@ -130,6 +147,11 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
       const trimmed = text.trim();
       if (!trimmed) return { success: false, reason: 'No text to speak.' };
 
+      const synthText =
+        trimmed.length > MAX_SYNTHESIS_CHARS
+          ? `${trimmed.slice(0, MAX_SYNTHESIS_CHARS)}…`
+          : trimmed;
+
       stop();
       setIsLoading(true);
       setLastError(null);
@@ -137,7 +159,7 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
       const controller = new AbortController();
       abortRef.current = controller;
 
-      const response = await postDeepAlVoiceSynthesize(trimmed, {
+      const response = await postDeepAlVoiceSynthesize(synthText, {
         workspace: options.workspace,
         module: options.module,
         signal: controller.signal,
@@ -175,17 +197,14 @@ export function useChatterboxPlayback(options: UseChatterboxPlaybackOptions = {}
         audioUrlType: audioUrlType(audioUrl),
       });
 
-      if (audioUrl.startsWith('blob:')) {
-        objectUrlRef.current = audioUrl;
-      }
-
-      const playback = await playChatterboxAudio(audioUrl, currentAudioRef, {
+      const playback = await playChatterboxAudio(audioUrl, currentAudioRef, revokeObjectUrlRef, {
         onStart: () => {
           setIsLoading(false);
           setIsPlaying(true);
           options.onPlaybackStart?.();
         },
         onEnd: () => {
+          revokeObjectUrl();
           setIsPlaying(false);
           options.onPlaybackEnd?.();
         },

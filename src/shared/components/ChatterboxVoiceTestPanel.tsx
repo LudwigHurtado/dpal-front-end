@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { API_ROUTES, apiUrl } from '../../../constants';
 import { postDeepAlVoiceSynthesize, resolveVoiceAudioUrl } from '../api/deepalVoiceApi';
+import { toPlayableAudioSrc } from '../voice/chatterboxAudio';
 
 const TEST_PHRASE = 'Hello from DPAL. This is Chatterbox speaking.';
 
@@ -60,7 +61,8 @@ export function ChatterboxVoiceTestPanel({
           audioUrlType: url.startsWith('data:') ? 'data-uri' : 'url',
         });
         stopAudio();
-        const audio = new Audio(url);
+        const prepared = toPlayableAudioSrc(url);
+        const audio = new Audio(prepared.src);
         audioRef.current = audio;
         await audio.play();
         setState({

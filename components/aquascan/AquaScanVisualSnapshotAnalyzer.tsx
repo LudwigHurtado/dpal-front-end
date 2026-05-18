@@ -282,6 +282,7 @@ export default function AquaScanVisualSnapshotAnalyzer({
       ) : null}
       <AiVoiceReplyControls
         className="mt-2"
+        theme="dark"
         replyText={reading}
         autoSpeak={voice.autoSpeak}
         onAutoSpeakChange={voice.setAutoSpeak}

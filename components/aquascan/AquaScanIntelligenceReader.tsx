@@ -689,6 +689,7 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
           </div>
           <AiVoiceReplyControls
             className="mt-2"
+            theme="dark"
             replyText={customAnswer}
             autoSpeak={voice.autoSpeak}
             onAutoSpeakChange={voice.setAutoSpeak}
@@ -702,6 +703,7 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
             statusMessage={voice.statusMessage}
             voiceProvider={voice.voiceProvider}
             listenLabel="Speak Answer"
+            emptyHint="Click Ask above first, then Speak Answer will read the response."
           />
           <ChatterboxVoiceTestPanel className="mt-2" />
           {customAnswer ? (
@@ -733,6 +735,23 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
             <div className="mt-2 rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-slate-300">
               <p className="font-semibold text-white">{activeQuestion.label}</p>
               <p className="mt-1">{activeQuestion.answer}</p>
+              <AiVoiceReplyControls
+                className="mt-2"
+                theme="dark"
+                replyText={activeQuestion.answer}
+                autoSpeak={voice.autoSpeak}
+                onAutoSpeakChange={voice.setAutoSpeak}
+                isSpeaking={voice.isSpeaking}
+                isGeneratingVoice={voice.isGeneratingVoice}
+                speak={voice.speak}
+                stopSpeaking={voice.stopSpeaking}
+                ttsSupported={voice.ttsSupported}
+                ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+                voiceError={voice.voiceError}
+                statusMessage={voice.statusMessage}
+                voiceProvider={voice.voiceProvider}
+                listenLabel="Speak Answer"
+              />
             </div>
           ) : null}
         </div>

@@ -39,7 +39,9 @@ export function useAiVoiceAssistant(options: UseAiVoiceAssistantOptions = {}) {
       if (!trimmed) return;
 
       void (async () => {
-        stopSpeaking();
+        browserTts.stop();
+        chatterbox.stop();
+        setVoiceProvider(null);
         setStatusMessage('Generating Chatterbox voice');
 
         const playResult = await chatterbox.playText(trimmed);
