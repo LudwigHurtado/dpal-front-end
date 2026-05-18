@@ -30,6 +30,7 @@ import deepalRouter from './routes/deepal';
 import situationRouter from './routes/situation';
 import goodWheelsRouter from './routes/goodWheels';
 import signalsRouter from './routes/signals';
+import disastersRouter from './routes/disasters';
 import floodGuardRouter from './routes/floodGuardRoutes';
 import dpalIntegrationsRoutes from './routes/dpalIntegrations.routes';
 import environmentalIntelligenceRouter from './routes/environmentalIntelligence';
@@ -183,6 +184,7 @@ app.use('/api/dpal-assistant', dpalAssistantRouter);
 /** DPAL Assistant structured chat + voice (paths: /api/deepal/chat, /api/deepal/voice/synthesize) */
 app.use('/api/deepal', deepalRouter);
 app.use('/api/signals', signalsRouter);
+app.use('/api/disasters', disastersRouter);
 app.use('/api/situation', situationRouter);
 app.use('/api/good-wheels', goodWheelsRouter);
 app.use('/api/floodguard', floodGuardRouter);

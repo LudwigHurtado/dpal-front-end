@@ -132,6 +132,47 @@ async function fetchDisastersFeedEvents(force: boolean): Promise<DisasterEvent[]
   return disastersInflight;
 }
 
+function formatDisastersFeedError(ex: unknown): { message: string; devHint?: string } {
+  if (detectRateLimitError(ex)) {
+    return {
+      message: 'Global alerts are temporarily rate-limited. Please retry in a few minutes.',
+    };
+  }
+
+  const status =
+    ex instanceof SituationFetchError
+      ? ex.status
+      : ex && typeof ex === 'object' && 'status' in ex && typeof (ex as { status: unknown }).status === 'number'
+        ? (ex as { status: number }).status
+        : undefined;
+
+  if (status === 404) {
+    return {
+      message:
+        'Global alerts are temporarily unavailable while the DPAL API is being updated. Use Refresh in a few minutes.',
+      devHint: import.meta.env.DEV
+        ? 'Backend missing GET /api/disasters/feed — deploy repo backend/ and confirm VITE_API_BASE.'
+        : undefined,
+    };
+  }
+
+  if (status === 502 || status === 503) {
+    return {
+      message:
+        'Global alert sources (USGS / NASA EONET) could not be reached right now. Try Refresh shortly.',
+    };
+  }
+
+  const raw = ex instanceof Error ? ex.message : String(ex);
+  const isGenericNotFound = /^not found$/i.test(raw.trim());
+  return {
+    message: isGenericNotFound
+      ? 'Global alerts are temporarily unavailable. Please try Refresh shortly.'
+      : raw,
+    devHint: import.meta.env.DEV ? 'Confirm VITE_API_BASE points at repo backend/ with /api/disasters/feed.' : undefined,
+  };
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export const GlobalAlertsPanel: React.FC<GlobalAlertsPanelProps> = ({
@@ -144,6 +185,7 @@ export const GlobalAlertsPanel: React.FC<GlobalAlertsPanelProps> = ({
   const [expanded, setExpanded]     = useState(true);
   const [filter, setFilter]         = useState<DisasterEvent['type'] | 'all'>('all');
   const [lastFetch, setLastFetch]   = useState<Date | null>(null);
+  const [errDevHint, setErrDevHint] = useState<string | undefined>(undefined);
   const filterRef                   = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
@@ -153,6 +195,7 @@ export const GlobalAlertsPanel: React.FC<GlobalAlertsPanelProps> = ({
       if (disastersCache && now - disastersCache.fetchedAt < DISASTERS_FEED_TTL_MS) {
         setEvents(disastersCache.events);
         setErr('');
+        setErrDevHint(undefined);
         setLoading(false);
         setLastFetch(new Date(disastersCache.fetchedAt));
         return;
@@ -161,16 +204,17 @@ export const GlobalAlertsPanel: React.FC<GlobalAlertsPanelProps> = ({
 
     setLoading(true);
     setErr('');
+    setErrDevHint(undefined);
     try {
       const ev = await fetchDisastersFeedEvents(force);
       setEvents(ev);
       setLastFetch(new Date());
     } catch (ex: unknown) {
-      if (detectRateLimitError(ex)) {
-        setErr('Disaster feed is temporarily rate-limited. Please retry shortly.');
-        if (disastersCache) setEvents(disastersCache.events);
-      } else {
-        setErr(ex instanceof Error ? ex.message : String(ex));
+      const { message, devHint } = formatDisastersFeedError(ex);
+      setErr(message);
+      setErrDevHint(devHint);
+      if (detectRateLimitError(ex) && disastersCache) {
+        setEvents(disastersCache.events);
       }
     } finally {
       setLoading(false);
@@ -280,11 +324,13 @@ export const GlobalAlertsPanel: React.FC<GlobalAlertsPanelProps> = ({
 
           {/* Error */}
           {err && (
-            <div className="flex items-center gap-2 bg-rose-950/30 border border-rose-800/40 rounded-xl px-3 py-2 text-[9px] text-rose-400 font-mono">
-              <AlertTriangle className="w-3 h-3 shrink-0" />
-              <span>
+            <div className="flex items-start gap-2 bg-rose-950/30 border border-rose-800/40 rounded-xl px-3 py-2 text-[9px] text-rose-300">
+              <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+              <span className="leading-relaxed">
                 {err}
-                <span className="ml-1 text-rose-500/90">— Retry later if rate limited; confirm VITE_API_BASE.</span>
+                {errDevHint && (
+                  <span className="mt-1 block font-mono text-[8px] text-rose-500/80">{errDevHint}</span>
+                )}
               </span>
             </div>
           )}
