@@ -38,6 +38,8 @@ export type ChatterboxHealthStatus = {
   chatterboxUpstreamStatus?: number | null;
   chatterboxUpstreamService?: string | null;
   chatterboxUpstreamHint?: string;
+  /** Hostname only — helps debug wiring without exposing secrets or full URL. */
+  chatterboxUpstreamHost?: string | null;
 };
 
 const DEFAULT_VOICE_MAX_CHARS = 2500;
@@ -117,6 +119,16 @@ function debugVoiceLogs(): boolean {
   return envTrim('DEBUG_VOICE_LOGS').toLowerCase() === 'true';
 }
 
+function chatterboxUpstreamHost(): string | null {
+  const url = readChatterboxUrl();
+  if (!url) return null;
+  try {
+    return new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
+  } catch {
+    return 'invalid-url';
+  }
+}
+
 export function getChatterboxHealthStatus(): ChatterboxHealthStatus {
   const url = readChatterboxUrl();
   const voiceId = readChatterboxVoiceId();
@@ -125,6 +137,7 @@ export function getChatterboxHealthStatus(): ChatterboxHealthStatus {
     chatterboxConfigured: chatterboxUrlConfigured,
     chatterboxUrlConfigured,
     chatterboxVoiceIdConfigured: Boolean(voiceId),
+    chatterboxUpstreamHost: chatterboxUpstreamHost(),
   };
 }
 
