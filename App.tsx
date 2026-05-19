@@ -36,6 +36,7 @@ import TransparencyDatabaseView from './components/TransparencyDatabaseView';
 import AiRegulationHub from './components/AiRegulationHub';
 import IncidentRoomView from './components/IncidentRoomView';
 import SituationRoomShell from './components/situation-room/SituationRoomShell';
+import CmiSituationRoomWorkspace from './src/features/situationRoom/CmiSituationRoomWorkspace';
 import TacticalHeatmap from './components/TacticalHeatmap';
 import TeamOpsView from './components/TeamOpsView';
 import MedicalOutpostView from './components/MedicalOutpostView';
@@ -115,6 +116,7 @@ import { reportMatchesKeywordFilter } from './utils/reportSearch';
 import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
 import { readNavSession, writeNavSession, categoryFromSession } from './utils/navSession';
 import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLinks';
+import { parseSituationRoomModeFromSearch } from './utils/situationRoomPaths';
 import { useTranslations } from './i18n';
 import { useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import {
@@ -126,6 +128,8 @@ import {
   parseAquaScanSituationRoomIdFromPath,
   parseCarbReportIdFromPath,
   parseCarbSituationRoomIdFromPath,
+  parseSituationRoomIdFromPath,
+  situationRoomPath,
   epaFacilityDetailPath,
   marketplaceMissionDetailPath,
   pathToView,
@@ -167,7 +171,7 @@ import AdditionalModulesPage from './src/features/additionalModules/AdditionalMo
 import ClimatiqEmissionsCalculatorPage from './src/features/climatiq/ClimatiqEmissionsCalculatorPage';
 import DmrvRoutes from './src/features/dmrv/DmrvRoutes';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonDMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace' | 'carbonComplianceWorkspace' | 'environmentalWorkspace' | 'additionalModules' | 'legacyMainMenuGrid' | 'deepOwlServiceLines' | 'globalIntelligenceMap' | 'climatiqCalculator' | 'dmrvSelector';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonDMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'cmiSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace' | 'carbonComplianceWorkspace' | 'environmentalWorkspace' | 'additionalModules' | 'legacyMainMenuGrid' | 'deepOwlServiceLines' | 'globalIntelligenceMap' | 'climatiqCalculator' | 'dmrvSelector';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -446,6 +450,9 @@ const App: React.FC = () => {
   const [carbSituationRoomId, setCarbSituationRoomId] = useState<string | null>(
     () => (typeof window !== 'undefined' ? parseCarbSituationRoomIdFromPath(window.location.pathname) : null),
   );
+  const [cmiSituationRoomId, setCmiSituationRoomId] = useState<string | null>(
+    () => (typeof window !== 'undefined' ? parseSituationRoomIdFromPath(window.location.pathname) : null),
+  );
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
   const [situationError, setSituationError] = useState<string | null>(null);
@@ -552,6 +559,9 @@ const App: React.FC = () => {
       }
       if (target.carbSituationRoomId) {
         setCarbSituationRoomId(target.carbSituationRoomId);
+      }
+      if (target.cmiSituationRoomId) {
+        setCmiSituationRoomId(target.cmiSituationRoomId);
       }
 
       const nextView = target.view as View;
@@ -665,6 +675,13 @@ const App: React.FC = () => {
     }
     if (currentView === 'carbSituationRoom' && carbSituationRoomId) {
       const path = carbSituationRoomPath(carbSituationRoomId);
+      const curPath = location.pathname.replace(/\/$/, '') || '/';
+      if (curPath === path) return;
+      navigate(path, { replace: false });
+      return;
+    }
+    if (currentView === 'cmiSituationRoom' && cmiSituationRoomId) {
+      const path = situationRoomPath(cmiSituationRoomId);
       const curPath = location.pathname.replace(/\/$/, '') || '/';
       if (curPath === path) return;
       navigate(path, { replace: false });
@@ -1071,16 +1088,23 @@ const App: React.FC = () => {
   /** While a situation room is open, keep ?reportId=&situationRoom=1 in the address bar (copy/refresh/share = this room, not the bare homepage). */
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
-    if (currentView === 'incidentRoom' && selectedReportForIncidentRoom) {
-      const target = buildSituationRoomUrl(selectedReportForIncidentRoom.id);
-      if (!target) return;
-      const cur = window.location.href.split('#')[0];
-      const tgt = target.split('#')[0];
-      if (cur !== tgt) {
-        window.history.replaceState({}, '', target);
-      }
+    const params = new URLSearchParams(window.location.search);
+    const wantSituation = params.get('situationRoom') === '1' || params.get('situationRoom') === 'true';
+    const reportId = params.get('reportId')?.trim();
+    if (wantSituation && reportId && window.location.pathname.replace(/\/$/, '') === '/incident') {
+      const path = situationRoomPath(reportId);
+      navigate(path, { replace: true });
+      setCmiSituationRoomId(reportId);
+      setCurrentView('cmiSituationRoom');
+      return;
     }
-  }, [currentView, selectedReportForIncidentRoom?.id]);
+    if (currentView === 'incidentRoom' && selectedReportForIncidentRoom) {
+      const path = situationRoomPath(selectedReportForIncidentRoom.id);
+      navigate(path, { replace: true });
+      setCmiSituationRoomId(selectedReportForIncidentRoom.id);
+      setCurrentView('cmiSituationRoom');
+    }
+  }, [currentView, selectedReportForIncidentRoom?.id, navigate]);
 
   const prevViewForUrlRef = useRef<View | null>(null);
   useLayoutEffect(() => {
@@ -2809,6 +2833,16 @@ const App: React.FC = () => {
                 /* ignore */
               }
             }}
+          />
+        )}
+
+        {currentView === 'cmiSituationRoom' && cmiSituationRoomId && (
+          <CmiSituationRoomWorkspace
+            roomId={cmiSituationRoomId}
+            mode={parseSituationRoomModeFromSearch(typeof window !== 'undefined' ? window.location.search : '')}
+            reportLocation={selectedReportForIncidentRoom?.location}
+            reportCategory={selectedReportForIncidentRoom?.category ? String(selectedReportForIncidentRoom.category) : undefined}
+            onBack={() => goBack('mainMenu')}
           />
         )}
 

@@ -1112,3 +1112,133 @@ model MrvNotification {
   @@index([projectId, createdAt])
   @@index([userId, read])
 }
+
+// ─── Situation Room (CMI-aligned evidence workspace) ─────────────────────────
+
+enum SituationRoomStatus {
+  DRAFT
+  ACTIVE
+  UNDER_REVIEW
+  SEALED
+  ARCHIVED
+}
+
+enum SituationMessageType {
+  USER
+  AI
+  VALIDATOR
+  SYSTEM
+}
+
+enum SituationValidatorReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Persistent Situation Room — canonical evidence workspace (not a registry).
+model SituationRoom {
+  id                    String              @id @default(cuid())
+  roomId                String              @unique
+  projectId             String?
+  reportId              String?
+  sourceType            String              @default("manual")
+  title                 String
+  category              String?
+  status                SituationRoomStatus @default(ACTIVE)
+  canonicalUrl          String?
+  qrUrl                 String?
+  createdByUserId       String?
+  methodologyId         String?
+  reportingPeriodStart  DateTime?
+  reportingPeriodEnd    DateTime?
+  aoiId                 String?
+  evidencePacketId      String?
+  publicVisibility      String              @default("private")
+  integrityHash         String?
+  blockchainAnchorId    String?
+  location              Json?
+  ledger                Json?
+  evidencePacket        Json?
+  aiSummary             Json?
+  sourceSnapshot        Json?
+  cadTrustMetadata      Json?
+  cmiAlignment          Json?
+  sealedAt              DateTime?
+  archivedAt            DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  messages         SituationRoomMessage[]
+  validatorReview  SituationValidatorReview?
+  auditLogs        SituationRoomAuditLog[]
+
+  @@map("situation_rooms")
+  @@index([reportId])
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SituationRoomMessage {
+  id                       String               @id @default(cuid())
+  roomId                   String
+  authorUserId             String?
+  authorName               String?
+  authorRole               String?
+  authorOrganization       String?
+  body                     String
+  messageType              SituationMessageType @default(USER)
+  aiGenerated              Boolean              @default(false)
+  linkedEvidenceIds        Json?
+  linkedMethodologyStepId  String?
+  attachmentIds            Json?
+  contentHash              String?
+  previousMessageHash      String?
+  metadata                 Json?
+  createdAt                DateTime             @default(now())
+  editedAt                 DateTime?
+  deletedAt                DateTime?
+
+  room SituationRoom @relation(fields: [roomId], references: [roomId], onDelete: Cascade)
+
+  @@map("situation_room_messages")
+  @@index([roomId, createdAt])
+  @@index([messageType])
+}
+
+model SituationValidatorReview {
+  id                           String                         @id @default(cuid())
+  roomId                       String                         @unique
+  validatorIdentity            String?
+  organization                 String?
+  accreditation                String?
+  conflictOfInterestDisclosure String?
+  filesReviewed                Json?
+  questions                    Json?
+  findings                     Json?
+  deficiencies                 Json?
+  reviewStatus                 SituationValidatorReviewStatus @default(PENDING)
+  finalNote                    String?
+  attestationSignature         String?
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+
+  room SituationRoom @relation(fields: [roomId], references: [roomId], onDelete: Cascade)
+
+  @@map("situation_validator_reviews")
+}
+
+model SituationRoomAuditLog {
+  id          String   @id @default(cuid())
+  roomId      String
+  action      String
+  actorUserId String?
+  payload     Json?
+  createdAt   DateTime @default(now())
+
+  room SituationRoom @relation(fields: [roomId], references: [roomId], onDelete: Cascade)
+
+  @@map("situation_room_audit_logs")
+  @@index([roomId, createdAt])
+}

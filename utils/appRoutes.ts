@@ -11,6 +11,10 @@ export const AQUASCAN_SITUATION_ROOM_PREFIX = '/aquascan/situation-room';
 export const CARB_REPORT_PREFIX = '/carb/reports';
 export const CARB_SITUATION_ROOM_PREFIX = '/carb/situation-room';
 
+import { parseSituationRoomIdFromPath, situationRoomPath, SITUATION_ROOM_PREFIX } from './situationRoomPaths';
+
+export { SITUATION_ROOM_PREFIX, parseSituationRoomIdFromPath, situationRoomPath };
+
 /** Deep-link fragment for Field OS — scrolls to Super Agent (use with `/field-os#super-agent`). */
 export const FIELD_OS_SUPER_AGENT_HASH = '#super-agent';
 
@@ -99,6 +103,7 @@ export type PathNavigationTarget = {
   aquaScanSituationRoomId?: string;
   carbViewerReportId?: string;
   carbSituationRoomId?: string;
+  cmiSituationRoomId?: string;
 };
 
 /** Map a pathname to the App shell view (and detail ids) — shared by URL→view and path-first navigation. */
@@ -133,6 +138,18 @@ export function resolvePathNavigationTarget(pathname: string): PathNavigationTar
   const carbSituationRoomIdFromPath = parseCarbSituationRoomIdFromPath(normalized);
   if (carbSituationRoomIdFromPath) {
     return { view: 'carbSituationRoom', carbSituationRoomId: carbSituationRoomIdFromPath };
+  }
+
+  const cmiSituationRoomIdFromPath = parseSituationRoomIdFromPath(normalized);
+  if (cmiSituationRoomIdFromPath) {
+    return { view: 'cmiSituationRoom', cmiSituationRoomId: cmiSituationRoomIdFromPath };
+  }
+  if (
+    normalized === '/situation-room' ||
+    normalized === '/situation-room/room' ||
+    normalized === '/qr/room'
+  ) {
+    return { view: 'cmiSituationRoom', cmiSituationRoomId: '' };
   }
 
   const v = pathToView(normalized);
@@ -315,6 +332,9 @@ export function pathToView(pathname: string): string | null {
   if (/^\/aquascan\/situation-room\/[^/]+$/.test(normalized)) return 'aquascanSituationRoom';
   if (/^\/carb\/reports\/[^/]+$/.test(normalized)) return 'carbReportViewer';
   if (/^\/carb\/situation-room\/[^/]+$/.test(normalized)) return 'carbSituationRoom';
+  if (/^\/situation-room\/room\/[^/]+$/.test(normalized)) return 'cmiSituationRoom';
+  if (/^\/qr\/room\/[^/]+$/.test(normalized)) return 'cmiSituationRoom';
+  if (/^\/situation-room\/[^/]+$/.test(normalized)) return 'cmiSituationRoom';
   if (/^\/preview\/module-preview\/[^/]+$/.test(normalized)) return 'previewModule';
   const hit = Object.entries(VIEW_PATHS).find(([, p]) => {
     const seg = p.replace(/\/$/, '') || '/';

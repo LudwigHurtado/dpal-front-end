@@ -1,6 +1,7 @@
 import { loadLocalSituationMessages, mergeSituationMessages, saveLocalSituationMessages } from './situationLocalStore';
 import type { ChatMessage, Report } from '../types';
 import { buildApiUrl, getDpalApiConfig, logSituationRoomDiagnostics } from '../src/config/api';
+import { getPublicAppBaseUrl, getSituationRoomUrl } from '../utils/situationRoomPaths';
 import { parseSituationResponseJson, situationApiErrorMessage, SituationFetchError, parseRetryAfterMs } from './situationFetchJson';
 
 export type SituationRoomSourceType =
@@ -256,23 +257,31 @@ export function buildTransparencyUrl(input: { reportId?: string; projectId?: str
   return u.toString();
 }
 
-export function buildSituationRoomUrl(input: { reportId?: string; roomId?: string; projectId?: string; type?: string }): string {
-  const cfg = getDpalApiConfig();
-  if (input.reportId) {
-    const u = new URL('/incident', cfg.publicFrontendBaseUrl);
-    u.searchParams.set('reportId', input.reportId);
-    u.searchParams.set('situationRoom', '1');
-    return u.toString();
+export function buildSituationRoomUrl(input: { reportId?: string; roomId?: string; projectId?: string; type?: string; mode?: string }): string {
+  const id = (input.roomId || input.reportId)?.trim();
+  if (!id) {
+    return getPublicAppBaseUrl();
   }
-  const u = new URL('/situation-room', cfg.publicFrontendBaseUrl);
-  if (input.roomId) u.searchParams.set('roomId', input.roomId);
-  if (input.projectId) u.searchParams.set('projectId', input.projectId);
-  if (input.type) u.searchParams.set('type', input.type);
-  return u.toString();
+  const mode =
+    input.mode === 'public' || input.mode === 'validator' || input.mode === 'sealed'
+      ? input.mode
+      : undefined;
+  const url = getSituationRoomUrl(id, mode);
+  if (input.projectId || input.type) {
+    try {
+      const u = new URL(url);
+      if (input.projectId) u.searchParams.set('projectId', input.projectId);
+      if (input.type) u.searchParams.set('type', input.type);
+      return u.toString();
+    } catch {
+      return url;
+    }
+  }
+  return url;
 }
 
 export function generateRoomQrPayload(roomId: string): string {
-  return buildSituationRoomUrl({ roomId });
+  return buildSituationRoomUrl({ roomId, reportId: roomId });
 }
 
 export function generateReportQrPayload(reportId: string): string {

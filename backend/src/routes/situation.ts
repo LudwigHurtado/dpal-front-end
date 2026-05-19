@@ -3,6 +3,14 @@ import multer from 'multer';
 import path from 'path';
 import { promises as fs } from 'fs';
 import crypto from 'crypto';
+import {
+  appendMessage as persistMessage,
+  buildCanonicalRoomUrl,
+  getMessages as persistGetMessages,
+  getRoomById,
+  upsertRoom,
+} from '../services/situationRoomPersistence';
+import { SituationMessageType } from '@prisma/client';
 
 type SituationSourceType =
   | 'public_report'
@@ -227,10 +235,12 @@ async function joinRoom(room: SituationRoomRecord): Promise<SituationRoomRecord>
 
 router.get('/health', async (_req: Request, res: Response): Promise<void> => {
   await ensureStorage();
+  const probe = await getRoomById('__health_probe__').catch(() => null);
   res.json({
     ok: true,
     service: 'situation-room',
-    persistence: 'file',
+    persistence: probe !== undefined ? 'prisma+file-fallback' : 'file',
+    canonicalPathPattern: '/situation-room/:roomId',
     timestamp: new Date().toISOString(),
   });
 });
@@ -253,6 +263,27 @@ router.get('/rooms', async (_req: Request, res: Response): Promise<void> => {
 
 router.get('/rooms/:roomId', async (req: Request, res: Response): Promise<void> => {
   const roomId = String(req.params.roomId || '').trim();
+  const persisted = await getRoomById(roomId);
+  if (persisted) {
+    const messages = await persistGetMessages(roomId);
+    res.json({
+      ok: true,
+      room: {
+        ...persisted,
+        messages: messages.map((m) => toMessageCompat({
+          id: m.id,
+          roomId: m.roomId,
+          text: m.body,
+          senderName: m.authorName,
+          senderRole: m.authorRole,
+          type: m.messageType.toLowerCase() as MessageType,
+          metadata: m.metadata,
+          createdAt: m.createdAt,
+        })),
+      },
+    });
+    return;
+  }
   const rooms = await readJsonArray<SituationRoomRecord>(ROOMS_FILE);
   const room = rooms.find((r) => r.roomId === roomId);
   if (!room) {
@@ -282,9 +313,20 @@ router.get('/report/:reportId', async (req: Request, res: Response): Promise<voi
       status: 'active',
       createdAt: now,
       updatedAt: now,
+      qr: { situationRoomUrl: buildCanonicalRoomUrl(reportId) },
     };
     rooms.unshift(room);
     await writeJsonArray(ROOMS_FILE, rooms);
+    await upsertRoom({
+      roomId: reportId,
+      reportId,
+      sourceType: 'public_report',
+      title: room.title,
+      category: room.category,
+      status: 'ACTIVE' as never,
+      canonicalUrl: buildCanonicalRoomUrl(reportId),
+      qrUrl: buildCanonicalRoomUrl(reportId),
+    }).catch(() => undefined);
     await appendSystemMessage(room.roomId, 'Situation Room created.');
     await appendSystemMessage(room.roomId, `Report attached: ${reportId}.`);
   }
@@ -412,6 +454,26 @@ router.post('/project', async (req: Request, res: Response): Promise<void> => {
 router.get('/:roomId/messages', async (req: Request, res: Response): Promise<void> => {
   const roomId = String(req.params.roomId || '').trim();
   const limit = Math.max(1, Math.min(Number(req.query.limit || 200), 1000));
+  const includeValidator = req.query.includeValidator !== 'false';
+  const persisted = await persistGetMessages(roomId, { includeValidator, limit });
+  if (persisted.length > 0) {
+    res.json({
+      ok: true,
+      messages: persisted.map((m) =>
+        toMessageCompat({
+          id: m.id,
+          roomId: m.roomId,
+          text: m.body,
+          senderName: m.authorName,
+          senderRole: m.authorRole,
+          type: m.messageType.toLowerCase() as MessageType,
+          metadata: m.metadata,
+          createdAt: m.createdAt,
+        }),
+      ),
+    });
+    return;
+  }
   const messages = await readJsonArray<SituationRoomMessage>(MESSAGES_FILE);
   const roomMessages = messages
     .filter((m) => m.roomId === roomId)
@@ -449,15 +511,50 @@ router.post('/:roomId/messages', async (req: Request, res: Response): Promise<vo
     rooms[idx].updatedAt = new Date().toISOString();
     await writeJsonArray(ROOMS_FILE, rooms);
   }
+  const msgType = ['user', 'system', 'validator', 'ai'].includes(String(body.type || 'user'))
+    ? (body.type as MessageType)
+    : (body.isSystem ? 'system' : 'user');
+  try {
+    const saved = await persistMessage({
+      roomId,
+      body: text,
+      authorName: String(body.senderName || body.sender || 'OPERATIVE'),
+      authorRole: body.senderRole ? String(body.senderRole) : undefined,
+      messageType:
+        msgType === 'ai'
+          ? SituationMessageType.AI
+          : msgType === 'validator'
+            ? SituationMessageType.VALIDATOR
+            : msgType === 'system'
+              ? SituationMessageType.SYSTEM
+              : SituationMessageType.USER,
+      aiGenerated: msgType === 'ai',
+      metadata: body.metadata,
+    });
+    res.status(201).json({
+      ok: true,
+      message: toMessageCompat({
+        id: saved.id,
+        roomId,
+        text: saved.body,
+        senderName: saved.authorName,
+        senderRole: saved.authorRole,
+        type: msgType,
+        metadata: saved.metadata,
+        createdAt: saved.createdAt,
+      }),
+    });
+    return;
+  } catch {
+    /* fall through to file persistence */
+  }
   const message: SituationRoomMessage = {
     id: makeId('msg'),
     roomId,
     text,
     senderName: String(body.senderName || body.sender || 'OPERATIVE'),
     senderRole: body.senderRole ? String(body.senderRole) : undefined,
-    type: ['user', 'system', 'validator', 'ai'].includes(String(body.type || 'user'))
-      ? (body.type as MessageType)
-      : (body.isSystem ? 'system' : 'user'),
+    type: msgType,
     metadata: body.metadata ?? undefined,
     createdAt: new Date().toISOString(),
   };

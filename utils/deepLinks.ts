@@ -3,6 +3,7 @@
  * Situation room chat uses report id as the API room id (`/api/situation/:reportId/...`).
  */
 import { getDpalApiConfig } from '../src/config/api';
+import { getSituationRoomUrl, logSituationRoomQrDiagnostics } from './situationRoomPaths';
 
 /** Same URL encoded in the “Ledger verification” QR on the printable certificate / PDF. */
 export function buildReportVerifyUrl(reportId: string): string {
@@ -17,15 +18,9 @@ export function buildReportVerifyUrl(reportId: string): string {
 }
 
 export function buildSituationRoomUrl(reportId: string): string {
-  const base = getDpalApiConfig().publicFrontendBaseUrl;
-  try {
-    const u = new URL('/incident', base);
-    u.searchParams.set('reportId', reportId);
-    u.searchParams.set('situationRoom', '1');
-    return u.toString();
-  } catch {
-    return `${base}/incident?reportId=${encodeURIComponent(reportId)}&situationRoom=1`;
-  }
+  const url = getSituationRoomUrl(reportId);
+  logSituationRoomQrDiagnostics(reportId, url);
+  return url;
 }
 
 /** Remove report/situation query params when leaving the situation room (avoid “stuck” on homepage with no context). */
